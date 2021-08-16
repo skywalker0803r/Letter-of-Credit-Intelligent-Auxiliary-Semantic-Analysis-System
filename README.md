@@ -34,6 +34,7 @@ pip install -r requirements.txt
 輸入以下指令打開網頁
 ```
 streamlit run 公司與事業部輔助判斷模組.py
+```
 
 ## Demo
 
