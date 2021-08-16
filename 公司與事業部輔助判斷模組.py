@@ -10,6 +10,7 @@ from transformers import pipeline
 import torch
 import plotly.express as px
 from sklearn.decomposition import PCA
+from colorama import Fore
 
 seed = set_seed(42)
 
@@ -59,10 +60,25 @@ button = st.button('predict')
 if not button:
     st.stop()
 
+# color text
+def header(left,url,right):
+    st.markdown(f'<font>{left}</font> <font color="#FF0000">{url}</font> <font>{right}</font>', 
+    unsafe_allow_html=True)
+
+def str2index(context,string):
+    ys = context.find(string)
+    ye = ys + len(string)
+    return ys,ye
+
 if button:
     product = text_output.values[0][0]
-    st.text(f'產品名稱:{product}')
+    ys,ye = str2index(text_input,product)
+    left = text_input[:ys]
+    right = text_input[ye:]
+    header(left,product,right)
+    
     st.text(f'預測方式:{mode}')
+    
     try:
         st.text(f'部門:{品名2部門[product]}')
         st.text(f'部門代號:{品名2代號[product]}')
