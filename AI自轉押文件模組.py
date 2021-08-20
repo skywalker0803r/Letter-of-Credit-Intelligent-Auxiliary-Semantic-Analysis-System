@@ -86,7 +86,7 @@ def applicant_predict(df,nlp):
         mode = 'rule'
     else:
         mode = 'bert'
-        text_output = model_predict(nlp,df,question='What is the Applicant?')
+        text_output = model_predict(nlp,df,question='What is the Applicant?',start_from0=True)
     try:
         return text_output.iloc[0,0],mode
     except:
@@ -151,13 +151,13 @@ df = pd.read_excel('./data/台塑企業_ 產品寶典20210303.xlsx',engine='open
 # 使用者 輸入區
 st.title('AI自轉押文件模組')
 st.subheader('產品欄位輸入區')
-text_input_45 = st.text_area('45A欄位輸入區')
+text_input_45 = st.text_area('45A欄位輸入區',value=產品csv['string_X_train'].values[0])
 st.subheader('開狀人欄位輸入區')
-text_input_50 = st.text_area('50欄位輸入區')
+text_input_50 = st.text_area('50欄位輸入區',value=開狀人csv['string_X_train'].values[0])
 st.subheader('銀行欄位輸入區')
-text_input_46A = st.text_area('46A欄位輸入區')
-text_input_47A = st.text_area('47A欄位輸入區')
-text_input_78A = st.text_area('78A欄位輸入區')
+text_input_46A = st.text_area('46A欄位輸入區',value=銀行csv['string_X_train'].values[0])
+text_input_47A = st.text_area('47A欄位輸入區',value=銀行csv['string_X_train'].values[0])
+text_input_78A = st.text_area('78A欄位輸入區',value=銀行csv['string_X_train'].values[0])
 
 
 # 圖片
