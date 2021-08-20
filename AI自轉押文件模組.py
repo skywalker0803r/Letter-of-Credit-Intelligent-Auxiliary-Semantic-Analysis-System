@@ -40,9 +40,15 @@ def get_bank(text):
         else:
             return None
 
-def load_model(url):
+def load_model(url,extend_word_list=None):
     tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
     model = DistilBertForQuestionAnswering.from_pretrained("distilbert-base-uncased")
+    
+    if extend_word_list != None:
+        new_tokens = extend_word_list
+        num_added_toks = tokenizer.add_tokens(new_tokens)
+        model.resize_token_embeddings(len(tokenizer))
+    
     model.load_state_dict(torch.load(url))
     model.eval()
     qa_nlp = pipeline('question-answering', model=model.to('cpu'), tokenizer=tokenizer)
@@ -134,9 +140,9 @@ def get_bert_space(csv,fe,text_input,text_output):
     return csv
 
 # 載入資料
-產品csv = pd.read_csv('./data/preprocess_for_SQUAD_產品.csv',index_col=0).rename(columns={'45A':'string_X_train'})[['string_X_train','Y_label']].head(20)
-銀行csv = pd.read_csv('./data/preprocess_for_SQUAD_銀行.csv',index_col=0).rename(columns={'string_X_train':'string_X_train'})[['string_X_train','Y_label']].head(20)
-開狀人csv = pd.read_csv('./data/preprocess_for_SQUAD_開狀人.csv',index_col=0).rename(columns={'string_X':'string_X_train'})[['string_X_train','Y_label']].head(20)
+產品csv = pd.read_csv('./data/preprocess_for_SQUAD_產品.csv',index_col=0).rename(columns={'45A':'string_X_train'})[['string_X_train','Y_label']].head(128)
+銀行csv = pd.read_csv('./data/preprocess_for_SQUAD_銀行.csv',index_col=0).rename(columns={'string_X_train':'string_X_train'})[['string_X_train','Y_label']].head(128)
+開狀人csv = pd.read_csv('./data/preprocess_for_SQUAD_開狀人.csv',index_col=0).rename(columns={'string_X':'string_X_train'})[['string_X_train','Y_label']].head(128)
 
 # 載入模型
 產品qa ,產品fe = load_model('./models/Product_Data_SQuAD_model_產品.pt')
@@ -155,10 +161,7 @@ text_input_45 = st.text_area('45A欄位輸入區',value=產品csv['string_X_trai
 st.subheader('開狀人欄位輸入區')
 text_input_50 = st.text_area('50欄位輸入區',value=開狀人csv['string_X_train'].values[0])
 st.subheader('銀行欄位輸入區')
-text_input_46A = st.text_area('46A欄位輸入區',value=銀行csv['string_X_train'].values[0])
-text_input_47A = st.text_area('47A欄位輸入區',value=銀行csv['string_X_train'].values[0])
-text_input_78A = st.text_area('78A欄位輸入區',value=銀行csv['string_X_train'].values[0])
-
+text_input_銀行 = st.text_area('46A 47A 78 欄位輸入區',value=銀行csv['string_X_train'].values[0])
 
 # 圖片
 st.image('./bert.png')
@@ -187,9 +190,9 @@ if st.button('predict'):
 
     # 銀行
     st.subheader('銀行預測結果')
-    bank,mode = bank_predict(pd.DataFrame({'string_X_train':text_input_46A},index=[0]),銀行qa)
+    bank,mode = bank_predict(pd.DataFrame({'string_X_train':text_input_銀行},index=[0]),銀行qa)
     st.text('預測結果')
-    color_output(text_input_46A,bank)
+    color_output(text_input_銀行,bank)
     st.text(f'預測方式:{mode}')
 
     # 針對這三個部分各自取出2維表示
@@ -197,7 +200,7 @@ if st.button('predict'):
     st.write(產品plot_data)
     開狀人plot_data = get_bert_space(開狀人csv,開狀人fe,text_input_50,applicant) # 2dim x,y
     st.write(開狀人plot_data)
-    銀行plot_data = get_bert_space(銀行csv,銀行fe,text_input_46A,bank) # 2dim x,y
+    銀行plot_data = get_bert_space(銀行csv,銀行fe,text_input_銀行,bank) # 2dim x,y
     st.write(銀行plot_data)
     
     # 更改欄位名稱 避免合併衝突
