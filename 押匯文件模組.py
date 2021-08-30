@@ -123,7 +123,7 @@ def color_output(text_input,text_output):
 
 # UI
 st.title('押匯文件模組')
-init_df = df[df['string_X_train'].str.contains('6281MLC00000321')]
+init_df = df[df['LCNO'] == '6281MLC00000321']
 init_value = ' '.join(init_df['string_X_train'].values.tolist())
 text_input = st.text_area('輸入文字',value=init_value)
 init_value_sp = split_x(text_input)
@@ -133,6 +133,7 @@ for text in init_value_sp:
     st.text(text)
 
 if st.button('預測'):
+    st.write('LCNO = {}'.format(init_df.LCNO.values[0]))
     x = init_value_sp
     answer = Collection_method(x,寶典)
     answer['class'] = answer['predict'].map(p2c)
@@ -141,4 +142,31 @@ if st.button('預測'):
         text_output = answer.iloc[i]['predict']
         st.text(answer.iloc[i]['class'])
         color_output(text_input,text_output)
+    table = answer[answer != 'not find'].dropna(axis=0)
+
+    def g(x,keyword):
+        try:
+            return x[x.find(keyword)-2:x.find(keyword)]
+        except:
+            return 'not find'
+
+    # 列表
+    table['正本'] = table['string_X_train'].apply(lambda x:g(x,'ORIGINALS'))
+    table['影本'] = table['string_X_train'].apply(lambda x:g(x,'COPIES'))
+    table['正本2'] = table['string_X_train'].apply(lambda x:g(x,'ORIGINAL'))
+    table['影本2'] = table['string_X_train'].apply(lambda x:g(x,'COPIE'))
+    table['影本3'] = table['string_X_train'].apply(lambda x:g(x,'PHOTOCOPY'))
+
+    for i in table.columns:
+        table[i] = pd.to_numeric(table[i],errors='coerce')
+    
+    table['正本'].update(table['正本2'])
+    table['影本'].update(table['影本2'])
+    table['影本'].update(table['影本3'])
+    
+    table2 = answer[['class']]
+    table2['正本'] = table['正本']
+    table2['影本'] = table['影本']
+    
+    st.table(table2.dropna(axis=0).astype(str))
 
