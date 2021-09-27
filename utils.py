@@ -418,7 +418,7 @@ def Collection_method(df,產品集合):
             if p in df.loc[i,'string_X_train']:
                 products.append(p)
         try:
-            labels[i] = max(products,key=len)
+            labels[i] = max(products,key=len) # 候選清單中取最長的
         except:
             labels[i] = 'not find'
     predict = pd.DataFrame(index=labels.keys(),columns=['predict'])
