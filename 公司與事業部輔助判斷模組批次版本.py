@@ -9,6 +9,8 @@ import os
 from transformers import DistilBertTokenizerFast
 from transformers import DistilBertForQuestionAnswering
 from transformers import pipeline
+import re
+from IPython.display import HTML
 import warnings;warnings.simplefilter('ignore')
 
 # set seed 
@@ -158,11 +160,57 @@ if button:
         right = text_input[ye:]
         st.markdown(f'<font>{left}</font> <font color="#FF0000">{mid}</font> <font>{right}</font>', 
         unsafe_allow_html=True)
-    
-    for i in text_output.index:
-        color_output(text_output.loc[i,x_col], text_output.loc[i,'predict'])
+
+    def save_color_df(df,save_path):
+        wrong_words = df['predict'].values.tolist()
+        writer = pd.ExcelWriter(save_path, engine='xlsxwriter')
+        df.to_excel(writer, sheet_name='Sheet1', header=False, index=False)
+        workbook  = writer.book
+        worksheet = writer.sheets['Sheet1']
+        cell_format_red = workbook.add_format({'font_color': 'red'})
+        cell_format_default = workbook.add_format({'bold': False})
+        for row in range(0,df.shape[0]):
+            for word in wrong_words:
+                try:
+                    # 1st case, wrong word is at the start and there is additional text
+                    if (df.iloc[row,0].index(word) == 0) \
+                    and (len(df.iloc[row,0]) != len(word)):
+                        worksheet.write_rich_string(row, 0, cell_format_red, word,
+                                                    cell_format_default,
+                                                    df.iloc[row,0][len(word):])
+
+                    # 2nd case, wrong word is at the middle of the string
+                    elif (df.iloc[row,0].index(word) > 0) \
+                    and (df.iloc[row,0].index(word) != len(df.iloc[row,0])-len(word)) \
+                    and ('Typo:' not in df.iloc[row,0]):
+                        starting_point = df.iloc[row,0].index(word)
+                        worksheet.write_rich_string(row, 0, cell_format_default,
+                                            df.iloc[row,0][0:starting_point],
+                                            cell_format_red, word, cell_format_default,
+                                            df.iloc[row,0][starting_point+len(word):])
+
+                    # 3rd case, wrong word is at the end of the string
+                    elif (df.iloc[row,0].index(word) > 0) \
+                    and (df.iloc[row,0].index(word) == len(df.iloc[row,0])-len(word)):
+                        starting_point = df.iloc[row,0].index(word)
+                        worksheet.write_rich_string(row, 0, cell_format_default,
+                                                    df.iloc[row,0][0:starting_point],
+                                                    cell_format_red, word)
+
+                    # 4th case, wrong word is the only one in the string
+                    elif (df.iloc[row,0].index(word) == 0) \
+                    and (len(df.iloc[row,0]) == len(word)):
+                        worksheet.write(row, 0, word, cell_format_red)
+
+                except ValueError:
+                    continue
+
+        writer.save()
+
 
     # 展示結果
+    for i in text_output.index:
+        color_output(text_output.loc[i,x_col], text_output.loc[i,'predict'])
     st.write(text_output)
     
     # 保存結果
@@ -170,8 +218,12 @@ if button:
     if not os.path.exists(folder):
         os.makedirs(folder)
     save_path = f'./predict_result/{tag}.xlsx'
-    text_output.to_excel(save_path)
+    save_color_df(text_output,save_path)
+    #text_output.to_excel(save_path)
     st.write(f'檔案已自動保存至{save_path}裡面')
+
+
+
 
 
     
