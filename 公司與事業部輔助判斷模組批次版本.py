@@ -173,11 +173,14 @@ if button:
 
     def save_color_df(df,save_path):
         writer = pd.ExcelWriter(save_path, engine='xlsxwriter')
-        df.to_excel(writer, sheet_name='Sheet1', header=True, index=False)
+        df['45A'] = ['45A'] + df['45A'].values.tolist()[:-1]
+        df['predict'] = ['predict'] + df['predict'].values.tolist()[:-1]
+        df.to_excel(writer, sheet_name='Sheet1', header=False, index=False)
         workbook  = writer.book
         worksheet = writer.sheets['Sheet1']
         cell_format_red = workbook.add_format({'font_color': 'red'})
         cell_format_default = workbook.add_format({'bold': False})
+        worksheet.write_row('A1',df.columns.tolist())
         for row in range(0,df.shape[0]):
             word = df.iloc[row,:]['predict']
             detect_col_idx = 0
