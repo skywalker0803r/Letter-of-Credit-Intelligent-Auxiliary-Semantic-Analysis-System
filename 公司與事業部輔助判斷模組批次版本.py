@@ -84,9 +84,9 @@ x_col = st.text_input('請輸入X欄位名稱 提供給模型推論使用 例如
 tag = st.text_input('請輸入預測結果保存檔案名稱')
 if test_df is not None:
     try:
-        test_df = pd.read_csv(test_df)
+        test_df = pd.read_csv(test_df,index_col=0)
     except:
-        test_df = pd.read_excel(test_df)
+        test_df = pd.read_excel(test_df,index_col=0)
 test_df = test_df.rename(columns={x_col:'string_X_train'})
 st.text('測試資料')
 st.write(test_df)
@@ -135,6 +135,16 @@ if button:
     text_output['部門'] = [g(i) for i in text_output['predict'].values]
     text_output['代號'] = [f(i) for i in text_output['predict'].values]
     text_output.insert(0, x_col, test_df['string_X_train'].values.tolist())
+    text_output = pd.concat([test_df,text_output.iloc[:,:]],axis=1)
+    text_output = text_output.drop(['string_X_train'],axis=1)
+    
+    col_45A = text_output['45A'].values.tolist()
+    text_output = text_output.drop(['45A'],axis=1)
+    text_output.insert(0, x_col, col_45A)
+    correct = [ i==j for i,j in zip(text_output['代號'].values.tolist(),text_output['推薦公司事業部'].values.tolist())]
+    correct = [ 'yes' if i == True else 'no' for i in correct]
+    text_output['正確與否'] = correct
+    #st.write(text_output)
 
     # 改顏色
     def change_color(a):
@@ -163,43 +173,44 @@ if button:
 
     def save_color_df(df,save_path):
         writer = pd.ExcelWriter(save_path, engine='xlsxwriter')
-        df.to_excel(writer, sheet_name='Sheet1', header=False, index=False)
+        df.to_excel(writer, sheet_name='Sheet1', header=True, index=False)
         workbook  = writer.book
         worksheet = writer.sheets['Sheet1']
         cell_format_red = workbook.add_format({'font_color': 'red'})
         cell_format_default = workbook.add_format({'bold': False})
         for row in range(0,df.shape[0]):
             word = df.iloc[row,:]['predict']
+            detect_col_idx = 0
             try:
                 # 1st case, wrong word is at the start and there is additional text
-                if (df.iloc[row,0].index(word) == 0) \
-                and (len(df.iloc[row,0]) != len(word)):
-                    worksheet.write_rich_string(row, 0, cell_format_red, word,
+                if (df.iloc[row,detect_col_idx].index(word) == 0) \
+                and (len(df.iloc[row,detect_col_idx]) != len(word)):
+                    worksheet.write_rich_string(row, detect_col_idx, cell_format_red, word,
                                                 cell_format_default,
-                                                df.iloc[row,0][len(word):])
+                                                df.iloc[row,detect_col_idx][len(word):])
 
                 # 2nd case, wrong word is at the middle of the string
-                elif (df.iloc[row,0].index(word) > 0) \
-                and (df.iloc[row,0].index(word) != len(df.iloc[row,0])-len(word)) \
-                and ('Typo:' not in df.iloc[row,0]):
-                    starting_point = df.iloc[row,0].index(word)
-                    worksheet.write_rich_string(row, 0, cell_format_default,
-                                        df.iloc[row,0][0:starting_point],
+                elif (df.iloc[row,detect_col_idx].index(word) > 0) \
+                and (df.iloc[row,detect_col_idx].index(word) != len(df.iloc[row,detect_col_idx])-len(word)) \
+                and ('Typo:' not in df.iloc[row,detect_col_idx]):
+                    starting_point = df.iloc[row,detect_col_idx].index(word)
+                    worksheet.write_rich_string(row, detect_col_idx, cell_format_default,
+                                        df.iloc[row,detect_col_idx][0:starting_point],
                                         cell_format_red, word, cell_format_default,
-                                        df.iloc[row,0][starting_point+len(word):])
+                                        df.iloc[row,detect_col_idx][starting_point+len(word):])
 
                 # 3rd case, wrong word is at the end of the string
-                elif (df.iloc[row,0].index(word) > 0) \
-                and (df.iloc[row,0].index(word) == len(df.iloc[row,0])-len(word)):
-                    starting_point = df.iloc[row,0].index(word)
-                    worksheet.write_rich_string(row, 0, cell_format_default,
-                                                df.iloc[row,0][0:starting_point],
+                elif (df.iloc[row,detect_col_idx].index(word) > 0) \
+                and (df.iloc[row,detect_col_idx].index(word) == len(df.iloc[row,detect_col_idx])-len(word)):
+                    starting_point = df.iloc[row,detect_col_idx].index(word)
+                    worksheet.write_rich_string(row, detect_col_idx, cell_format_default,
+                                                df.iloc[row,detect_col_idx][0:starting_point],
                                                 cell_format_red, word)
 
                 # 4th case, wrong word is the only one in the string
-                elif (df.iloc[row,0].index(word) == 0) \
-                and (len(df.iloc[row,0]) == len(word)):
-                    worksheet.write(row, 0, word, cell_format_red)
+                elif (df.iloc[row,detect_col_idx].index(word) == 0) \
+                and (len(df.iloc[row,detect_col_idx]) == len(word)):
+                    worksheet.write(row, detect_col_idx, word, cell_format_red)
 
             except ValueError:
                 continue
