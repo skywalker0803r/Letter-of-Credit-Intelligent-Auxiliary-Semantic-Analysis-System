@@ -173,8 +173,14 @@ if button:
 
     def save_color_df(df,save_path):
         writer = pd.ExcelWriter(save_path, engine='xlsxwriter')
-        df['45A'] = ['45A'] + df['45A'].values.tolist()[:-1]
-        df['predict'] = ['predict'] + df['predict'].values.tolist()[:-1]
+        new_df = pd.DataFrame()
+        for i in df.columns:
+            new_df[i] = [i] + df[i].values.tolist() # 欄位名稱 和 value
+        df = new_df
+        
+        #df['45A'] = ['45A'] + df['45A'].values.tolist()[:-1]
+        #df['predict'] = ['predict'] + df['predict'].values.tolist()[:-1]
+        
         df.to_excel(writer, sheet_name='Sheet1', header=False, index=False)
         workbook  = writer.book
         worksheet = writer.sheets['Sheet1']
