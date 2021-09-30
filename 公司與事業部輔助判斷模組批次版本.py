@@ -29,6 +29,21 @@ def set_seed(seed = int):
     return random_state
 seed = set_seed(42)
 
+def get_jaccard_sim(str1, str2): 
+    a = set(str1.split()) 
+    b = set(str2.split())
+    c = a.intersection(b)
+    return float(len(c)) / (len(a) + len(b) - len(c))
+
+# 針對模型輸入做預處理
+def preprocess(x):
+    x = str(x) # 轉成字串
+    x = re.sub('[\u4e00-\u9fa5]', '', x) # 去除中文,因為產品沒有中文
+    x = re.sub(r'[^\w\s]',' ',x) # 去除標點符號,因為產品沒有標點符號,將標點符號用空格代替
+    x = x.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ') # 換行符號去除,用空格代替
+    x = x.replace('_x000D_',' ') # 去除奇怪符號,用空格代替
+    return x
+
 # bert 預測法
 def model_predict(nlp,df,question='What is the product name?',start_from0=False):
     table = pd.DataFrame()
@@ -82,26 +97,43 @@ st.text('請上傳csv或xlsx格式的檔案')
 test_df = st.file_uploader("upload file", type={"csv", "xlsx"})
 x_col = st.text_input('請輸入X欄位名稱 提供給模型推論使用 例如:45A')
 tag = st.text_input('請輸入預測結果保存檔案名稱')
+
+# 判斷檔案是哪一種格式
 if test_df is not None:
     try:
         test_df = pd.read_csv(test_df,index_col=0)
     except:
         test_df = pd.read_excel(test_df,index_col=0)
 test_df = test_df.rename(columns={x_col:'string_X_train'})
+test_df['string_X_train'] = test_df['string_X_train'].apply(preprocess) # 針對輸入做預處理
 st.text('測試資料')
 st.write(test_df)
+
 # 讀取訓練資料
 train_df = pd.read_csv('./data/preprocess_for_SQUAD_產品.csv')[['string_X_train','Y_label']]
 
-# 讀取寶典
+# 讀取台塑網提供之寶典
 df1 = pd.read_excel('./data/台塑企業_ 產品寶典20210303.xlsx',engine='openpyxl').iloc[:,:-1]
 df2 = pd.read_excel('./data/寶典.v3.台塑網.20210901.xlsx',engine='openpyxl')
 df2.columns = df1.columns
 df = df1.append(df2)
-df['品名'] = df['品名'].apply(lambda x:x.strip())
+df['品名'] = df['品名'].apply(lambda x:x.strip()) # 針對品名去除左右空白
+train_df['Y_label'] = train_df['Y_label'].apply(lambda x:x.strip()) #針對SPEC去除左右空白
 
-# 製作產品集合
+# 製作產品集合(寶典+SPEC)
 產品集合 = set(df['品名'].values.tolist() + train_df['Y_label'].values.tolist())
+
+# 如果品名是單詞前後加空白
+新產品集合 = []
+for p in 產品集合:
+    if ' ' not in p: # 如果是單詞則前後加空白
+        p = ' ' + p.strip() + ' '
+        新產品集合.append(p)
+    else:
+        新產品集合.append(p)
+產品集合 = list(set(新產品集合))
+
+# 製作品名對應表
 品名2部門 = dict(zip(df['品名'],df['公司事業部門']))
 品名2代號 = dict(zip(df['品名'],df['公司代號']))
 
@@ -120,31 +152,35 @@ if button:
         text_output.loc[not_find_idx,'predict'] = model_predict(nlp,test_df.loc[not_find_idx])
         text_output.loc[not_find_idx,'method'] = 'bert'
     
-    # 對應部門別和代號
-    def g(x):
+    # 對應部門別和代號,就算匹配不到一模一樣的,取最相似的
+    def map2部門(x):
         try:
             return str(品名2部門[x])
         except:
-            return '找不到對應部門'
-    def f(x):
+            jacs = {}
+            for p in 產品集合:
+                jacs[p] = get_jaccard_sim(x,p)
+            return max(jacs,key=jacs.get)
+    def map2品名(x):
         try:
             return str(品名2代號[x])
         except:
-            return '找不到對應代號'
+            jacs = {}
+            for p in 產品集合:
+                jacs[p] = get_jaccard_sim(x,p)
+            return max(jacs,key=jacs.get)
     
-    text_output['部門'] = [g(i) for i in text_output['predict'].values]
-    text_output['代號'] = [f(i) for i in text_output['predict'].values]
+    # 整理一下輸出結果
+    text_output['部門'] = [map2部門(i) for i in text_output['predict'].values]
+    text_output['代號'] = [map2品名(i) for i in text_output['predict'].values]
     text_output.insert(0, x_col, test_df['string_X_train'].values.tolist())
     text_output = pd.concat([test_df,text_output.iloc[:,:]],axis=1)
     text_output = text_output.drop(['string_X_train'],axis=1)
-    
     col_45A = text_output['45A'].values.tolist()
     text_output = text_output.drop(['45A'],axis=1)
     text_output.insert(0, x_col, col_45A)
     correct = [ i==j for i,j in zip(text_output['代號'].values.tolist(),text_output['推薦公司事業部'].values.tolist())]
-    correct = [ 'yes' if i == True else 'no' for i in correct]
-    text_output['正確與否'] = correct
-    #st.write(text_output)
+    text_output['正確與否'] = [ 'yes' if i == True else 'no' for i in correct]
 
     # 改顏色
     def change_color(a):
@@ -156,6 +192,7 @@ if button:
         tdf = a.applymap(d1.get).fillna('')
         return tdf
     
+    # 在文本中找子字串
     def str2index(context,string):
         if type(string) != str:
             print(string)
@@ -173,13 +210,12 @@ if button:
 
     def save_color_df(df,save_path):
         writer = pd.ExcelWriter(save_path, engine='xlsxwriter')
+        
+        # 在第一個row add 欄位名稱
         new_df = pd.DataFrame()
         for i in df.columns:
-            new_df[i] = [i] + df[i].values.tolist() # 欄位名稱 和 value
+            new_df[i] = [i] + df[i].values.tolist() 
         df = new_df
-        
-        #df['45A'] = ['45A'] + df['45A'].values.tolist()[:-1]
-        #df['predict'] = ['predict'] + df['predict'].values.tolist()[:-1]
         
         df.to_excel(writer, sheet_name='Sheet1', header=False, index=False)
         workbook  = writer.book
@@ -225,12 +261,12 @@ if button:
                 continue
         writer.save()
 
-    # 展示結果
+    # 展示結果在網頁上
     for i in text_output.index:
         color_output(text_output.loc[i,x_col], text_output.loc[i,'predict'])
     st.write(text_output)
     
-    # 保存結果
+    # 保存結果到資料夾
     folder = './predict_result/'
     if not os.path.exists(folder):
         os.makedirs(folder)
