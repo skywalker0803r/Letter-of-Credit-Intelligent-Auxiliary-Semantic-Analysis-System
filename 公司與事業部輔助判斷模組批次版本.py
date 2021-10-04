@@ -43,8 +43,11 @@ def preprocess(x):
     x = re.sub(r'[^\w\s]','',x) # 去除標點符號
     x = x.replace('\n', '').replace('\r', '').replace('\t', '') # 換行符號去除
     str.strip(x) # 移除左右空白
-    # 出現在頭的 就不可能對到前後加空格的 這種情形要想想怎麼對照
-    x = ' ' + x + ' ' #加上左右空白
+    # 去除多重空白
+    x = x.replace('   ', ' ')
+    x = x.replace('  ', ' ')
+    # 出現在頭的 就不可能對到前後加空格的 這種情形要想想怎麼對照(加上左右空白)
+    x = ' ' + x + ' '
     return x
 
 # bert 預測法
