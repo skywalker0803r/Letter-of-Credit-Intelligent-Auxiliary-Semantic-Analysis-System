@@ -42,7 +42,10 @@ def preprocess(x):
     x = re.sub('[\u4e00-\u9fa5]', '', x) # 去除中文
     x = re.sub(r'[^\w\s]','',x) # 去除標點符號
     x = x.replace('\n', '').replace('\r', '').replace('\t', '') # 換行符號去除
-    return str.strip(x) # 移除左右空白
+    str.strip(x) # 移除左右空白
+    # 出現在頭的 就不可能對到前後加空格的 這種情形要想想怎麼對照
+    x = ' ' + x + ' ' #加上左右空白
+    return x
 
 # bert 預測法
 def model_predict(nlp,df,question='What is the product name?',start_from0=False):
@@ -64,6 +67,7 @@ def model_predict(nlp,df,question='What is the product name?',start_from0=False)
             predict = QA_input['context'][0:res['end']]
         row = pd.DataFrame({'predict':predict},index=[i])
         table = table.append(row)
+    table['predict'] = table['predict'].apply(lambda x:bert_postprocess(x))
     return table['predict']
 
 # 寶典比對法
@@ -87,9 +91,18 @@ def Collection_method(df,產品集合):
 
 def add_space(x):
     if (' ' not in x)&(len(x)<=5):
-        return f' {x} '
+        return ' ' + x + ' '
     else:
         return x
+
+def bert_postprocess(x):
+    return x.replace('QUANTITY','')
+
+def product_name_postprocess(x):
+    x = x.replace('-',' ')
+    x = x.strip()
+    x = add_space(x)
+    return x
 
 # 載入訓練好的模型
 tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
@@ -117,14 +130,12 @@ st.write(test_df)
 
 # 讀取訓練資料
 train_df = pd.read_csv('./data/preprocess_for_SQUAD_產品.csv')[['string_X_train','Y_label','EXPNO']]
-train_df['Y_label'] = train_df['Y_label'].apply(lambda x:x.strip()) #針對SPEC去除左右空白
-train_df['Y_label'] = train_df['Y_label'].apply(lambda x:add_space(x))
+train_df['Y_label'] = train_df['Y_label'].apply(lambda x:product_name_postprocess(x))
 
 # 讀取台塑網提供之寶典
 df = pd.read_excel('./data/寶典.v4.20211001.xlsx',engine='openpyxl')
 df = df.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
-df['品名'] = df['品名'].apply(lambda x:x.strip()) # 針對品名去除左右空白
-df['品名'] = df['品名'].apply(lambda x:add_space(x))
+df['品名'] = df['品名'].apply(lambda x:product_name_postprocess(x))
 
 # 製作產品集合(寶典+SPEC)
 產品集合 = set(df['品名'].values.tolist() + train_df['Y_label'].values.tolist())
