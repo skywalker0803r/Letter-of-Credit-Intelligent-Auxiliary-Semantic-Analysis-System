@@ -29,6 +29,7 @@ def set_seed(seed = int):
     return random_state
 seed = set_seed(42)
 
+# jaccard文本相似度
 def get_jaccard_sim(str1, str2): 
     a = set(str1.split()) 
     b = set(str2.split())
@@ -63,9 +64,9 @@ def model_predict(nlp,df,question='What is the product name?',start_from0=False)
             predict = QA_input['context'][0:res['end']]
         row = pd.DataFrame({'predict':predict},index=[i])
         table = table.append(row)
-    return table['predict'].values[0]
+    return table['predict']
 
-# 暴力搜索法
+# 寶典比對法
 def Collection_method(df,產品集合):
     labels = {}
     my_bar = st.progress(0)
@@ -84,7 +85,13 @@ def Collection_method(df,產品集合):
     predict['method'] = 'rule'
     return predict
 
-# 載入模型
+def add_space(x):
+    if (' ' not in x)&(len(x)<=5):
+        return f' {x} '
+    else:
+        return x
+
+# 載入訓練好的模型
 tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
 model = DistilBertForQuestionAnswering.from_pretrained("distilbert-base-uncased")
 model.load_state_dict(torch.load('./models/Product_Data_SQuAD_model_product.pt'))
@@ -110,43 +117,33 @@ st.write(test_df)
 
 # 讀取訓練資料
 train_df = pd.read_csv('./data/preprocess_for_SQUAD_產品.csv')[['string_X_train','Y_label','EXPNO']]
+train_df['Y_label'] = train_df['Y_label'].apply(lambda x:x.strip()) #針對SPEC去除左右空白
+train_df['Y_label'] = train_df['Y_label'].apply(lambda x:add_space(x))
 
 # 讀取台塑網提供之寶典
-df1 = pd.read_excel('./data/台塑企業_ 產品寶典20210303.xlsx',engine='openpyxl').iloc[:,:-1]
-df2 = pd.read_excel('./data/寶典.v3.台塑網.20210901.xlsx',engine='openpyxl')
-df2.columns = df1.columns
-df = df1.append(df2)
+df = pd.read_excel('./data/寶典.v4.20211001.xlsx',engine='openpyxl')
+df = df.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
 df['品名'] = df['品名'].apply(lambda x:x.strip()) # 針對品名去除左右空白
-train_df['Y_label'] = train_df['Y_label'].apply(lambda x:x.strip()) #針對SPEC去除左右空白
+df['品名'] = df['品名'].apply(lambda x:add_space(x))
 
 # 製作產品集合(寶典+SPEC)
 產品集合 = set(df['品名'].values.tolist() + train_df['Y_label'].values.tolist())
 
-# 如果品名是單詞前後加空白
-新產品集合 = []
-for p in 產品集合:
-    if ' ' not in p: # 如果是單詞則前後加空白
-        p = ' ' + p.strip() + ' '
-        新產品集合.append(p)
-    else:
-        新產品集合.append(p)
-#產品集合 = list(set(新產品集合))
-
-# 製作對應表(寶典)
+# 製作對應表(寶典對部門和代號)
 品名2部門寶典 = dict(zip(df['品名'],df['公司事業部門']))
 品名2代號寶典 = dict(zip(df['品名'],df['公司代號']))
 
-# 製作對應表(訓練資料)
+# 製作對應表(訓練資料對代號)
 品名2代號訓練資料 = dict(zip(train_df.dropna(subset=['EXPNO'],axis=0)['Y_label'],train_df.dropna(subset=['EXPNO'],axis=0)['EXPNO']))
 
-# 根據品名從訓練資料搜索EXPNO,然後把EXPNO代入保典裡找公司部門
+# 根據品名從訓練資料搜索EXPNO(代號),然後把EXPNO(代號)代入寶典裡找公司部門
 def find_department(x):
     try:
         return df.loc[df['公司代號']==train_df.loc[train_df.Y_label==x,'EXPNO'].dropna().value_counts().sort_values().index[-1],'公司事業部門'].value_counts().sort_values().index[-1]
     except:
         return 'not from_pretrained'
 
-# UI設計
+# 主UI設計
 st.title('公司與事業部輔助判斷模組')
 st.image('./bert.png')
 button = st.button('predict')
@@ -173,12 +170,7 @@ if button:
                 jacs[p] = get_jaccard_sim(x,p)
             x = max(jacs,key=jacs.get)
             # 然後重複一樣動作
-            if x in 品名2部門寶典.keys(): #先從寶典找
-                return str(品名2部門寶典[x])
-            elif x in train_df['Y_label'].values.tolist(): #找不到從訓練資料找
-                return find_department(x)
-            else: # 基本上這裡應該不會觸發
-                return 'not find'
+            map2部門(x)
     
     def map2代號(x):
         if  x in 品名2代號寶典.keys(): #先從寶典找
@@ -191,16 +183,13 @@ if button:
                 jacs[p] = get_jaccard_sim(x,p)
             x = max(jacs,key=jacs.get)
             # 然後重複一樣動作
-            if x in 品名2代號寶典.keys():
-                return str(品名2代號寶典[x]) 
-            elif x in 品名2代號訓練資料.keys():
-                return str(品名2代號訓練資料[x])
-            else: # 基本上這裡應該不會觸發
-                return 'not find'
+            map2代號(x)
     
     # 整理一下輸出結果
     text_output['部門'] = [map2部門(i) for i in text_output['predict'].values]
     text_output['代號'] = [map2代號(i) for i in text_output['predict'].values]
+    text_output['部門'].fillna('寶典裡沒有',inplace=True)
+    text_output['代號'].fillna('寶典裡沒有',inplace=True)
     text_output.insert(0, x_col, test_df['string_X_train'].values.tolist())
     text_output = pd.concat([test_df,text_output.iloc[:,:]],axis=1)
     text_output = text_output.drop(['string_X_train'],axis=1)
@@ -208,10 +197,12 @@ if button:
     text_output = text_output.drop(['45A'],axis=1)
     text_output.insert(0, x_col, col_45A)
     correct = [ i==j for i,j in zip(text_output['代號'].values.tolist(),text_output['推薦公司事業部'].values.tolist())]
+    st.write(text_output)
     text_output['代號'].apply(lambda x:x.replace('nan','not find'))
     text_output['正確與否'] = [ 'yes' if i == True else 'no' for i in correct]
     text_output['錯誤原因'] = '無錯誤'
     text_output.loc[text_output['正確與否']=='no','錯誤原因'] = '訓練使用的數據跟此份測試資料的代號不一致(可能還需釐清廠方提供數據是否有錯誤)'
+    text_output.loc[text_output['部門']=='寶典裡沒有','錯誤原因'] = '寶典裡找不到,因此調用bert預測,預測出的產品在寶典裡沒有'
 
     # 改顏色
     def change_color(a):
@@ -312,7 +303,7 @@ if button:
         return result['correct'].value_counts()['yes']/len(result)
     st.write(f'正確率:{get_acc(text_output)}')
     ignore_error_text_output = text_output.loc[text_output['錯誤原因'] != '訓練使用的數據跟此份測試資料的代號不一致(可能還需釐清廠方提供數據是否有錯誤)']
-    st.write(f'忽略資料錯誤後正確率:{get_acc(ignore_error_text_output)}')
+    st.write(f'忽略訓練使用的數據跟此份測試資料的代號不一致的問題後正確率:{get_acc(ignore_error_text_output)}')
     
     # 保存結果到資料夾
     folder = './predict_result/'
