@@ -134,13 +134,17 @@ test_df['string_X_train'] = test_df['string_X_train'].apply(preprocess) # 針對
 st.text('測試資料')
 st.write(test_df)
 
-# 讀取訓練資料
+# 讀取訓練資料(SPEC)
 train_df = pd.read_csv('./data/preprocess_for_SQUAD_產品.csv')[['string_X_train','Y_label','EXPNO']]
 train_df['Y_label'] = train_df['Y_label'].apply(lambda x:product_name_postprocess(x))
 
-# 讀取台塑網提供之寶典
-df = pd.read_excel('./data/寶典.v4.20211001.xlsx',engine='openpyxl')
-df = df.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
+# 讀取台塑網提供之(寶典)
+df1 = pd.read_excel('./data/台塑企業_ 產品寶典20210303.xlsx',engine='openpyxl')[['公司代號','公司事業部門','品名']]
+df2 = pd.read_excel('./data/寶典.v3.台塑網.20210901.xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
+df2 = df2.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
+df3 = pd.read_excel('./data/寶典.v4.20211001.xlsx',engine='openpyxl')
+df3 = df3.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
+df = df1.append(df2).append(df3)
 df['品名'] = df['品名'].apply(lambda x:product_name_postprocess(x))
 
 # 製作產品集合(寶典+SPEC)
@@ -326,11 +330,3 @@ if button:
     save_color_df(text_output,save_path)
     #text_output.to_excel(save_path)
     st.write(f'檔案已自動保存至{save_path}裡面')
-
-
-
-
-
-    
-
-
