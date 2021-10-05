@@ -71,7 +71,7 @@ def model_predict(nlp,df,question='What is the product name?',start_from0=False)
         row = pd.DataFrame({'predict':predict},index=[i])
         table = table.append(row)
     table['predict'] = table['predict'].apply(lambda x:bert_postprocess(x))
-    return table['predict']
+    return [ str(i) for i in table['predict'].values.tolist()] # list of string
 
 # 寶典比對法
 def Collection_method(df,產品集合):
@@ -99,7 +99,10 @@ def add_space(x):
         return x
 
 def bert_postprocess(x):
-    return x.replace('QUANTITY','')
+    x = x.replace('QUANTITY','')
+    if 'PACKING' in x: #像這個 有辦法將 packing之後的都幹掉嗎
+        x = x[:x.find('PACKING')+len('PACKING')]
+    return x
 
 def product_name_postprocess(x):
     x = x.replace('-',' ')
@@ -169,7 +172,8 @@ if button:
     # 若規則無解則用bert
     not_find_idx = text_output.loc[text_output['predict'] == 'not find',:].index
     if len(not_find_idx) > 0:
-        text_output.loc[not_find_idx,'predict'] = model_predict(nlp,test_df.loc[not_find_idx])
+        bert_predict = model_predict(nlp,test_df.loc[not_find_idx])
+        text_output.loc[not_find_idx,'predict'] = bert_predict
         text_output.loc[not_find_idx,'method'] = 'bert'
     
     # 對應部門別和代號,就算匹配不到一模一樣的,取最相似的,少了品名2部門訓練資料 使用find_department函數取代之
@@ -296,11 +300,6 @@ if button:
             except ValueError:
                 continue
         writer.save()
-
-    # 展示結果在網頁上
-    #for i in text_output.index:
-    #    color_output(text_output.loc[i,x_col], text_output.loc[i,'predict'])
-    #st.write(text_output)
     
     # 展示正確率
     def get_acc(df):
