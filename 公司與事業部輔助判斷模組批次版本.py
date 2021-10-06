@@ -120,7 +120,8 @@ nlp = pipeline('question-answering', model=model.to('cpu'), tokenizer=tokenizer)
 # 上傳測試檔案
 st.text('請上傳csv或xlsx格式的檔案')
 test_df = st.file_uploader("upload file", type={"csv", "xlsx"})
-x_col = st.text_input('請輸入X欄位名稱 提供給模型推論使用 例如:45A')
+x_col = '45A' #產品名
+x_col2 = '50' #開狀人
 tag = st.text_input('請輸入預測結果保存檔案名稱')
 
 # 判斷檔案是哪一種格式
@@ -139,10 +140,10 @@ train_df = pd.read_csv('./data/preprocess_for_SQUAD_產品.csv')[['string_X_trai
 train_df['Y_label'] = train_df['Y_label'].apply(lambda x:product_name_postprocess(x))
 
 # 讀取台塑網提供之(寶典)
-df1 = pd.read_excel('./data/台塑企業_ 產品寶典20210303.xlsx',engine='openpyxl')[['公司代號','公司事業部門','品名']]
-df2 = pd.read_excel('./data/寶典.v3.台塑網.20210901.xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
+df1 = pd.read_excel('./data/寶典/台塑企業_ 產品寶典20210303.xlsx',engine='openpyxl')[['公司代號','公司事業部門','品名']]
+df2 = pd.read_excel('./data/寶典/寶典.v3.台塑網.20210901.xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
 df2 = df2.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
-df3 = pd.read_excel('./data/寶典.v4.20211001.xlsx',engine='openpyxl')
+df3 = pd.read_excel('./data/寶典/寶典.v4.20211001.xlsx',engine='openpyxl')
 df3 = df3.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
 df = df1.append(df2).append(df3)
 df['品名'] = df['品名'].apply(lambda x:product_name_postprocess(x))
@@ -225,6 +226,14 @@ if button:
     text_output['錯誤原因'] = '無錯誤'
     text_output.loc[text_output['正確與否']=='no','錯誤原因'] = '訓練使用的數據跟此份測試資料的代號不一致(可能還需釐清廠方提供數據是否有錯誤)'
     text_output.loc[text_output['部門']=='寶典裡沒有','錯誤原因'] = '寶典裡找不到,因此調用bert預測,預測出的產品在寶典裡沒有'
+    # 開狀人的預測結果可以先試著也加進去
+    def preprocess_50(x):
+        x = str(x)
+        x = re.sub('[\u4e00-\u9fa5]', '', x) # 去除中文
+        x = re.sub(r'[^\w\s]','',x) # 去除標點符號
+        x = x.replace('\n', '').replace('\r', '').replace('\t', '') # 換行符號去除
+        return str.strip(x) # 移除左右空白
+    text_output['預測開狀人'] = text_output[x_col2].apply(lambda x:preprocess_50(x).split("_x000D")[0])
 
     # 改顏色
     def change_color(a):
