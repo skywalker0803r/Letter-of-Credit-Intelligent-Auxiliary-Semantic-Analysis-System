@@ -110,12 +110,17 @@ def product_name_postprocess(x):
     x = add_space(x)
     return x
 
-# 載入訓練好的模型
-tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
-model = DistilBertForQuestionAnswering.from_pretrained("distilbert-base-uncased")
-model.load_state_dict(torch.load('./models/Product_Data_SQuAD_model_product.pt'))
-model.eval()
-nlp = pipeline('question-answering', model=model.to('cpu'), tokenizer=tokenizer)
+# 載入訓練好的模型(產品) 簡稱 nlp
+# 載入訓練好的模型(開狀人) 簡稱 nlp2
+def load_nlp(path):
+    tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
+    model = DistilBertForQuestionAnswering.from_pretrained("distilbert-base-uncased")
+    model.load_state_dict(torch.load(path))
+    model.eval()
+    nlp = pipeline('question-answering', model=model.to('cpu'), tokenizer=tokenizer)
+    return nlp
+nlp = load_nlp('./models/Product_Data_SQuAD_model_product.pt')
+nlp2 = load_nlp('./models/Product_Data_SQuAD_model_開狀人.pt')
 
 # 上傳測試檔案
 st.text('請上傳csv或xlsx格式的檔案')
@@ -145,8 +150,14 @@ df2 = pd.read_excel('./data/寶典/寶典.v3.台塑網.20210901.xlsx',engine='op
 df2 = df2.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
 df3 = pd.read_excel('./data/寶典/寶典.v4.20211001.xlsx',engine='openpyxl')
 df3 = df3.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
-df = df1.append(df2).append(df3)
-df['品名'] = df['品名'].apply(lambda x:product_name_postprocess(x))
+df4 = pd.read_excel('./data/寶典/寶典.v5.20211006.xlsx',engine='openpyxl')
+df4 = df4.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
+df = df1.append(df2).append(df3).append(df4) # 合併所有寶典
+df['品名'] = df['品名'].apply(lambda x:product_name_postprocess(x)) #品名後處理
+
+# 讀取開狀人寶典,尾綴
+開狀人寶典 = pd.read_csv('./data/寶典/開狀人寶典.csv')
+開狀人尾綴 = pd.read_csv('./data/寶典/開狀人尾綴.csv')
 
 # 製作產品集合(寶典+SPEC)
 產品集合 = set(df['品名'].values.tolist() + train_df['Y_label'].values.tolist())
@@ -226,14 +237,40 @@ if button:
     text_output['錯誤原因'] = '無錯誤'
     text_output.loc[text_output['正確與否']=='no','錯誤原因'] = '訓練使用的數據跟此份測試資料的代號不一致(可能還需釐清廠方提供數據是否有錯誤)'
     text_output.loc[text_output['部門']=='寶典裡沒有','錯誤原因'] = '寶典裡找不到,因此調用bert預測,預測出的產品在寶典裡沒有'
-    # 開狀人的預測結果可以先試著也加進去
+    
+    # 開狀人的預測結果可以先試著也加進去====================================================================================
     def preprocess_50(x):
         x = str(x)
         x = re.sub('[\u4e00-\u9fa5]', '', x) # 去除中文
         x = re.sub(r'[^\w\s]','',x) # 去除標點符號
         x = x.replace('\n', '').replace('\r', '').replace('\t', '') # 換行符號去除
         return str.strip(x) # 移除左右空白
-    text_output['預測開狀人'] = text_output[x_col2].apply(lambda x:preprocess_50(x).split("_x000D")[0])
+    
+    def predict_Applicant(df=text_output,x_col=x_col2):
+        df['50'] = df['50'].apply(lambda x:preprocess_50(x))
+        df['預測開狀人'] = 'not find'
+        for i in df.index:
+            x = df.loc[i,x_col]
+            # 1寶典匹配法
+            for a in 開狀人寶典['開狀人'].values.tolist():
+                if (a in x) & (df.loc[i,'預測開狀人']=='not find'):
+                    df.loc[i,'預測開狀人'] = a
+            # 2尾綴匹配法
+            for b in 開狀人尾綴['尾綴'].values.tolist():
+                if (b in x) & (df.loc[i,'預測開狀人']=='not find'):
+                    df.loc[i,'預測開狀人'] = x[:x.find(b)+len(b)]
+        # 若 1,2 方法都不行則用bert
+        not_find_idx = df.loc[df['預測開狀人'] == 'not find',:].index
+        if len(not_find_idx) > 0:
+            bert_predict = model_predict(
+                nlp2,
+                df.rename(columns={x_col:'string_X_train'}).loc[not_find_idx],
+                question='What is the Applicant name?',
+                start_from0=True)
+            df.loc[not_find_idx,'預測開狀人'] = bert_predict
+        return df
+    text_output = predict_Applicant(df=text_output,x_col=x_col2)
+    # 開狀人的預測結果可以先試著也加進去====================================================================================
 
     # 改顏色
     def change_color(a):
