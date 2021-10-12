@@ -162,7 +162,7 @@ df['品名'] = df['品名'].apply(lambda x:product_name_postprocess(x)) #品名�
 開狀人尾綴 = pd.read_csv('./data/寶典/開狀人尾綴.csv')
 
 # 讀取公司寶典,尾綴
-公司寶典 = pd.read_csv('./data/寶典/公司寶典加尾綴.csv')
+公司寶典 = pd.read_csv('./data/寶典/公司寶典加尾綴(擴充版).csv')
 
 # 製作產品集合(寶典+SPEC)
 產品集合 = set(df['品名'].values.tolist() + train_df['Y_label'].values.tolist())
