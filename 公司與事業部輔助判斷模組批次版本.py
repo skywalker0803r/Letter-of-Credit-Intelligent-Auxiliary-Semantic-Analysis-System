@@ -121,12 +121,14 @@ def load_nlp(path):
     return nlp
 nlp = load_nlp('./models/Product_Data_SQuAD_model_product.pt')
 nlp2 = load_nlp('./models/Product_Data_SQuAD_model_開狀人.pt')
+nlp3 = load_nlp('./models/Product_Data_SQuAD_model_公司.pt')
 
 # 上傳測試檔案
 st.text('請上傳csv或xlsx格式的檔案')
 test_df = st.file_uploader("upload file", type={"csv", "xlsx"})
 x_col = '45A' #產品名
 x_col2 = '50' #開狀人
+x_col3 = '59' #公司名
 tag = st.text_input('請輸入預測結果保存檔案名稱')
 
 # 判斷檔案是哪一種格式
@@ -159,6 +161,9 @@ df['品名'] = df['品名'].apply(lambda x:product_name_postprocess(x)) #品名�
 開狀人寶典 = pd.read_csv('./data/寶典/開狀人寶典.csv')
 開狀人尾綴 = pd.read_csv('./data/寶典/開狀人尾綴.csv')
 
+# 讀取公司寶典,尾綴
+公司寶典 = pd.read_csv('./data/寶典/公司寶典加尾綴.csv')
+
 # 製作產品集合(寶典+SPEC)
 產品集合 = set(df['品名'].values.tolist() + train_df['Y_label'].values.tolist())
 
@@ -179,6 +184,8 @@ def find_department(x):
 # 主UI設計
 st.title('公司與事業部輔助判斷模組')
 st.image('./bert.png')
+option = st.selectbox('選擇要用產品名找公司代號還是用公司名稱找公司代號',('產品名', '公司名'))
+st.write('You selected:', option)
 button = st.button('predict')
 
 # 推論按鈕
@@ -272,6 +279,41 @@ if button:
     text_output = predict_Applicant(df=text_output,x_col=x_col2)
     # 開狀人的預測結果可以先試著也加進去====================================================================================
 
+    # 公司的預測結果也可以試著加進去========================================================================================
+    def preprocess_59(x): # 公司59欄位預處理
+        x = str(x) #轉str
+        x = re.sub('[\u4e00-\u9fa5]', '', x) # 去除中文
+        x = re.sub(r'[^\w\s]','',x) # 去除標點符號
+        x = x.replace('\n', '').replace('\r', '').replace('\t', '') # 去除換行符號
+        return str.strip(x)
+
+    def predict_company(df=text_output,x_col=x_col3):
+        df['59'] = df['59'].apply(lambda x:preprocess_59(x))
+        df['預測公司'] = 'not find'
+        for i in df.index:
+            x = df.loc[i,x_col]
+            # 1寶典匹配法
+            for a in 公司寶典['公司英文名稱'].values.tolist():
+                if (a in x) & (df.loc[i,'預測公司'] == 'not find'):
+                    df.loc[i,'預測公司'] = a
+            # 2尾綴匹配法
+            for b in 公司寶典['尾綴'].values.tolist():
+                if (b in x) & (df.loc[i,'預測公司'] == 'not find'):
+                    df.loc[i,'預測公司'] = x[:x.find(b)+len(b)]
+        # 若 1,2 方法都不行則用bert
+        not_find_idx = df.loc[df['預測公司'] == 'not find',:].index
+        if len(not_find_idx) > 0:
+            bert_predict = model_predict(
+                nlp3, #nlp3(公司)
+                df.rename(columns={x_col:'string_X_train'}).loc[not_find_idx],
+                question = 'What is the company name?',
+                start_from0 = True)
+            df.loc[not_find_idx,'預測公司'] = bert_predict
+        df['利用公司名稱預測公司代號'] = [公司寶典.loc[公司寶典['公司英文名稱'] == x,'代號'].values[0] if x in 公司寶典['公司英文名稱'].values else 'not find' for x in df['預測公司'].values]
+        return df
+    text_output = predict_company(df=text_output,x_col=x_col3)
+
+
     # 改顏色
     def change_color(a):
         d = {}
@@ -357,7 +399,10 @@ if button:
         correct_label = []
         for i in df.index:
             target = df.loc[i,'推薦公司事業部']
-            predict = df.loc[i,'代號']
+            if option == '產品名':
+                predict = df.loc[i,'代號']
+            if option == '公司名':
+                predict = df.loc[i,'利用公司名稱預測公司代號']
             if target == predict:
                 correct.append('yes')
             else:
