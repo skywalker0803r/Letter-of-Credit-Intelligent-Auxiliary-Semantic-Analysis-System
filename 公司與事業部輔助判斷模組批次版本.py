@@ -162,7 +162,7 @@ df['品名'] = df['品名'].apply(lambda x:product_name_postprocess(x)) #品名�
 開狀人尾綴 = pd.read_csv('./data/寶典/開狀人尾綴.csv')
 
 # 讀取公司寶典,尾綴
-公司寶典 = pd.read_csv('./data/寶典/公司寶典加尾綴(擴充版).csv')
+公司寶典 = pd.read_csv('./data/寶典/公司寶典加尾綴.csv')
 
 # 製作產品集合(寶典+SPEC)
 產品集合 = set(df['品名'].values.tolist() + train_df['Y_label'].values.tolist())
@@ -285,6 +285,7 @@ if button:
         x = re.sub('[\u4e00-\u9fa5]', '', x) # 去除中文
         x = re.sub(r'[^\w\s]','',x) # 去除標點符號
         x = x.replace('\n', '').replace('\r', '').replace('\t', '') # 去除換行符號
+        x = x.replace('r','').replace('n','')
         return str.strip(x)
 
     def predict_company(df=text_output,x_col=x_col3):
