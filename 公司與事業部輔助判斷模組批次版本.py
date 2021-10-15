@@ -30,15 +30,15 @@ def set_seed(seed = int):
 seed = set_seed(42)
 
 # jaccard文本相似度
-def get_jaccard_sim(str1, str2): 
+def get_jaccard_sim(str1, str2):
     a = set(str1.split()) 
     b = set(str2.split())
     c = a.intersection(b)
     return float(len(c)) / (len(a) + len(b) - len(c))
 
 # 針對模型輸入做預處理
-def preprocess(x):
-    x = str(x)
+def preprocess_45(x):
+    x = str(x).upper() # 轉大寫字串
     x = re.sub('[\u4e00-\u9fa5]', '', x) # 去除中文
     x = re.sub(r'[^\w\s]','',x) # 去除標點符號
     x = x.replace('\n', '').replace('\r', '').replace('\t', '') # 換行符號去除
@@ -51,14 +51,14 @@ def preprocess(x):
     return x
 
 # bert 預測法
-def model_predict(nlp,df,question='What is the product name?',start_from0=False):
+def model_predict(nlp,df,question='What is the product name?',start_from0=False,x_col='45A',y_col='預測產品'):
     table = pd.DataFrame()
     idx_list = sorted(df.index.tolist())
     my_bar = st.progress(0)
     for percent_complete,i in enumerate(idx_list):
         my_bar.progress(percent_complete/len(idx_list))
         sample = df.loc[[i]]
-        string_X_train = sample['string_X_train'].values[0]
+        string_X_train = sample[x_col].values[0]
         QA_input = {
             'question': question,
             'context': string_X_train
@@ -68,28 +68,32 @@ def model_predict(nlp,df,question='What is the product name?',start_from0=False)
             predict = QA_input['context'][res['start']:res['end']]
         else:
             predict = QA_input['context'][0:res['end']]
-        row = pd.DataFrame({'predict':predict},index=[i])
+        row = pd.DataFrame({y_col:predict},index=[i])
         table = table.append(row)
-    table['predict'] = table['predict'].apply(lambda x:bert_postprocess(x))
-    return [ str(i) for i in table['predict'].values.tolist()] # list of string
+    table[y_col] = table[y_col].apply(lambda x:[bert_postprocess(x)])
+    return [ i for i in table[y_col].values.tolist()] # list of string
 
 # 寶典比對法
-def Collection_method(df,產品集合):
+def Collection_method(df,產品集合,x_col):
     labels = {}
+    labels_max = {}
     my_bar = st.progress(0)
     for percent_complete,i in enumerate(df.index):
         my_bar.progress(percent_complete/len(df))
         products = []
         for p in 產品集合:
-            if p in df.loc[i,'string_X_train']:
+            if p in df.loc[i,x_col]:
                 products.append(p) # 加入候選清單
-        try:
-            labels[i] = max(products,key=len) # 候選清單中取最長的
-        except:
+        if len(products) > 0: # 如果有找到產品
+            labels[i] = products # 複數個產品,之後配合公司去篩選出一個
+            labels_max[i] = max(products,key=len) # 取長度最長的產品
+        else:
             labels[i] = 'not find'
-    predict = pd.DataFrame(index=labels.keys(),columns=['predict'])
-    predict['predict'] = labels.values()
-    predict['method'] = 'rule'
+            labels_max[i] = 'not find'
+    predict = pd.DataFrame(index=labels.keys(),columns=['預測產品'])
+    predict['預測產品'] = labels.values()
+    predict['預測產品(取長度最長)'] = labels_max.values()
+    predict['預測產品使用方式'] = 'rule'
     return predict
 
 def add_space(x):
@@ -137,8 +141,9 @@ if test_df is not None:
         test_df = pd.read_csv(test_df,index_col=0)
     except:
         test_df = pd.read_excel(test_df,index_col=0)
-test_df = test_df.rename(columns={x_col:'string_X_train'})
-test_df['string_X_train'] = test_df['string_X_train'].apply(preprocess) # 針對輸入做預處理
+
+# 針對45欄位輸入做預處理
+test_df['45A'] = test_df['45A'].apply(lambda x:preprocess_45(x)) 
 st.text('測試資料')
 st.write(test_df)
 
@@ -162,7 +167,7 @@ df['品名'] = df['品名'].apply(lambda x:product_name_postprocess(x)) #品名�
 開狀人尾綴 = pd.read_csv('./data/寶典/開狀人尾綴.csv')
 
 # 讀取公司寶典,尾綴
-公司寶典 = pd.read_csv('./data/寶典/公司寶典加尾綴.csv')
+公司寶典 = pd.read_csv('./data/寶典/公司寶典加尾綴(擴充版).csv')
 
 # 製作產品集合(寶典+SPEC)
 產品集合 = set(df['品名'].values.tolist() + train_df['Y_label'].values.tolist())
@@ -184,20 +189,18 @@ def find_department(x):
 # 主UI設計
 st.title('公司與事業部輔助判斷模組')
 st.image('./bert.png')
-option = st.selectbox('選擇要用產品名找公司代號還是用公司名稱找公司代號',('產品名', '公司名'))
-st.write('You selected:', option)
 button = st.button('predict')
 
 # 推論按鈕
 if button:
     # 先用規則
-    text_output = Collection_method(test_df, 產品集合)
+    text_output = Collection_method(test_df, 產品集合 ,x_col)
     # 若規則無解則用bert
-    not_find_idx = text_output.loc[text_output['predict'] == 'not find',:].index
+    not_find_idx = text_output.loc[text_output['預測產品'] == 'not find',:].index
     if len(not_find_idx) > 0:
         bert_predict = model_predict(nlp,test_df.loc[not_find_idx])
-        text_output.loc[not_find_idx,'predict'] = bert_predict
-        text_output.loc[not_find_idx,'method'] = 'bert'
+        text_output.loc[not_find_idx,'預測產品'] = bert_predict
+        text_output.loc[not_find_idx,'預測產品使用方式'] = 'bert'
     
     # 對應部門別和代號,就算匹配不到一模一樣的,取最相似的,少了品名2部門訓練資料 使用find_department函數取代之
     def map2部門(x):
@@ -226,25 +229,16 @@ if button:
             # 然後重複一樣動作
             map2代號(x)
     
-    # 整理一下輸出結果
-    text_output['部門'] = [map2部門(i) for i in text_output['predict'].values]
-    text_output['代號'] = [map2代號(i) for i in text_output['predict'].values]
-    text_output['部門'].fillna('寶典裡沒有',inplace=True)
-    text_output['代號'].fillna('寶典裡沒有',inplace=True)
-    text_output.insert(0, x_col, test_df['string_X_train'].values.tolist())
+    # 利用產品名去對應部門跟代號
+    text_output['根據產品預測部門'] = [[map2部門(i) for i in lst] for lst in text_output['預測產品'].values]
+    text_output['根據產品預測代號'] = [[map2代號(i) for i in lst] for lst in text_output['預測產品'].values]
+    text_output['根據產品預測部門'].fillna('寶典裡沒有',inplace=True)
+    text_output['根據產品預測代號'].fillna('寶典裡沒有',inplace=True)
     text_output = pd.concat([test_df,text_output.iloc[:,:]],axis=1)
-    text_output = text_output.drop(['string_X_train'],axis=1)
     col_45A = text_output['45A'].values.tolist()
     text_output = text_output.drop(['45A'],axis=1)
     text_output.insert(0, x_col, col_45A)
-    correct = [ i==j for i,j in zip(text_output['代號'].values.tolist(),text_output['推薦公司事業部'].values.tolist())]
-    st.write(text_output)
-    text_output['代號'].apply(lambda x:x.replace('nan','not find'))
-    text_output['正確與否'] = [ 'yes' if i == True else 'no' for i in correct]
-    text_output['錯誤原因'] = '無錯誤'
-    text_output.loc[text_output['正確與否']=='no','錯誤原因'] = '訓練使用的數據跟此份測試資料的代號不一致(可能還需釐清廠方提供數據是否有錯誤)'
-    text_output.loc[text_output['部門']=='寶典裡沒有','錯誤原因'] = '寶典裡找不到,因此調用bert預測,預測出的產品在寶典裡沒有'
-    
+
     # 開狀人的預測結果可以先試著也加進去====================================================================================
     def preprocess_50(x):
         x = str(x)
@@ -314,6 +308,40 @@ if button:
         return df
     text_output = predict_company(df=text_output,x_col=x_col3)
 
+    text_output['集成預測代號'] = 'not find'
+    for idx in text_output.index:
+        try:
+            公司預測代號 = str(text_output.loc[idx,'利用公司名稱預測公司代號'])
+            產品預測代號列表 = text_output.loc[idx,'根據產品預測代號'].copy()
+            # case 1直接匹配
+            if 公司預測代號 in 產品預測代號列表:
+                text_output.loc[idx,'集成預測代號'] = 公司預測代號
+                continue
+            
+            # case 2 判斷第一碼做初步篩選,再用jacs取最高
+            for i in 產品預測代號列表:
+                if int(i[0]) != int(公司預測代號[0]): #看第一碼對不對
+                    產品預測代號列表.remove(i) # 不對就移除
+            jacs = {}
+            for i in 產品預測代號列表:
+                jacs[i] = get_jaccard_sim(i,公司預測代號)
+            text_output.loc[idx,'集成預測代號'] = max(jacs,key=jacs.get)
+        except:
+            text_output.loc[idx,'集成預測代號'] = str(text_output.loc[idx,'利用公司名稱預測公司代號'])
+    
+    # 計算正確與否
+    correct = [ i==j for i,j in zip(text_output['集成預測代號'].values.tolist(),text_output['推薦公司事業部'].values.tolist())]
+    text_output['集成預測代號'].apply(lambda x:x.replace('nan','not find'))
+    text_output['正確與否'] = [ 'yes' if i == True else 'no' for i in correct]
+    text_output['錯誤原因'] = '無錯誤'
+    text_output.loc[text_output['正確與否']=='no','錯誤原因'] = '訓練使用的數據跟此份測試資料的代號不一致(可能還需釐清廠方提供數據是否有錯誤)'
+    text_output.loc[text_output['根據產品預測部門']=='寶典裡沒有','錯誤原因'] = '寶典裡找不到,因此調用bert預測,預測出的產品在寶典裡沒有'
+
+    # 展示結果
+    st.write('==================================')
+    st.write(text_output)
+    st.write('==================================')
+
 
     # 改顏色
     def change_color(a):
@@ -357,7 +385,7 @@ if button:
         cell_format_default = workbook.add_format({'bold': False})
         worksheet.write_row('A1',df.columns.tolist())
         for row in range(0,df.shape[0]):
-            word = df.iloc[row,:]['predict']
+            word = df.iloc[row,:]['預測產品(取長度最長)']
             detect_col_idx = 0
             try:
                 # 1st case, wrong word is at the start and there is additional text
@@ -396,15 +424,9 @@ if button:
     
     # 展示正確率
     def get_acc(df):
-        correct = []
-        correct_label = []
+        correct ,correct_label = [] ,[]
         for i in df.index:
-            target = df.loc[i,'推薦公司事業部']
-            if option == '產品名':
-                predict = df.loc[i,'代號']
-            if option == '公司名':
-                predict = df.loc[i,'利用公司名稱預測公司代號']
-            if target == predict:
+            if df.loc[i,'推薦公司事業部'] == df.loc[i,'集成預測代號']:
                 correct.append('yes')
             else:
                 correct.append('no')
