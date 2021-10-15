@@ -208,26 +208,16 @@ if button:
             return str(品名2部門寶典[x])
         elif x in train_df['Y_label'].values.tolist(): #找不到從訓練資料找
             return find_department(x)
-        else: #再找不到算jac最接近的產品
-            jacs = {}
-            for p in 產品集合:
-                jacs[p] = get_jaccard_sim(x,p)
-            x = max(jacs,key=jacs.get)
-            # 然後重複一樣動作
-            map2部門(x)
+        else:
+            return '寶典裡沒有'
     
     def map2代號(x):
         if  x in 品名2代號寶典.keys(): #先從寶典找
             return str(品名2代號寶典[x])
         elif x in 品名2代號訓練資料.keys(): #找不到從訓練資料找
             return str(品名2代號訓練資料[x])
-        else: #再找不到算jac最接近的產品
-            jacs = {}
-            for p in 產品集合:
-                jacs[p] = get_jaccard_sim(x,p)
-            x = max(jacs,key=jacs.get)
-            # 然後重複一樣動作
-            map2代號(x)
+        else:
+            return '寶典裡沒有'
     
     # 利用產品名去對應部門跟代號
     text_output['根據產品預測部門'] = [[map2部門(i) for i in lst] for lst in text_output['預測產品'].values]
