@@ -71,7 +71,7 @@ def model_predict(nlp,df,question='What is the product name?',start_from0=False,
         row = pd.DataFrame({y_col:predict},index=[i])
         table = table.append(row)
     table[y_col] = table[y_col].apply(lambda x:[bert_postprocess(x)])
-    return [ i for i in table[y_col].values.tolist()] # list of string
+    return [ i[0] for i in table[y_col].values.tolist()] # list of string
 
 # 寶典比對法
 def Collection_method(df,產品集合,x_col):
@@ -84,7 +84,7 @@ def Collection_method(df,產品集合,x_col):
         for p in 產品集合:
             if p in df.loc[i,x_col]:
                 products.append(p) # 加入候選清單
-        if len(products) > 0: # 如果有找到產品
+        if len(products) > 0: # 如果有找到產品 
             labels[i] = products # 複數個產品,之後配合公司去篩選出一個
             labels_max[i] = max(products,key=len) # 取長度最長的產品
         else:
@@ -126,6 +126,7 @@ def load_nlp(path):
 nlp = load_nlp('./models/Product_Data_SQuAD_model_product.pt')
 nlp2 = load_nlp('./models/Product_Data_SQuAD_model_開狀人.pt')
 nlp3 = load_nlp('./models/Product_Data_SQuAD_model_公司.pt')
+nlp4 = load_nlp('./models/Product_Data_SQuAD_model_銀行.pt')
 
 # 上傳測試檔案
 st.text('請上傳csv或xlsx格式的檔案')
@@ -133,6 +134,7 @@ test_df = st.file_uploader("upload file", type={"csv", "xlsx"})
 x_col = '45A' #產品名
 x_col2 = '50' #開狀人
 x_col3 = '59' #公司名
+銀行_col = ['46A','47A','78'] #銀行欄位
 tag = st.text_input('請輸入預測結果保存檔案名稱')
 
 # 判斷檔案是哪一種格式
@@ -186,6 +188,9 @@ def find_department(x):
     except:
         return 'not from_pretrained'
 
+# 讀取銀行列表
+銀行列表 = np.load('./data/寶典/銀行寶典.npy')
+
 # 主UI設計
 st.title('公司與事業部輔助判斷模組')
 st.image('./bert.png')
@@ -199,7 +204,8 @@ if button:
     not_find_idx = text_output.loc[text_output['預測產品'] == 'not find',:].index
     if len(not_find_idx) > 0:
         bert_predict = model_predict(nlp,test_df.loc[not_find_idx])
-        text_output.loc[not_find_idx,'預測產品'] = bert_predict
+        text_output.loc[not_find_idx,'預測產品'] = [ [i] for i in bert_predict]
+        text_output.loc[not_find_idx,'預測產品(取長度最長)'] = bert_predict
         text_output.loc[not_find_idx,'預測產品使用方式'] = 'bert'
     
     # 對應部門別和代號,就算匹配不到一模一樣的,取最相似的,少了品名2部門訓練資料 使用find_department函數取代之
@@ -319,6 +325,45 @@ if button:
         except:
             text_output.loc[idx,'集成預測代號'] = str(text_output.loc[idx,'利用公司名稱預測公司代號'])
     
+    #==================銀行預測部分==================================================================
+    def preprocess_銀行(x):
+        x = str(x) # 0.轉字串
+        x = re.sub('[\u4e00-\u9fa5]', '', x) # 1.去除中文
+        x = re.sub('[’!"#$%&\'()*+,/:;<=>?@[\\]^_`{|}~，。,.]', '', x) # 2.去除標點符號
+        x = x.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ') # 3.去除換行符號
+        x = x.replace('x000D','') # 4.移除'x000D'
+        x = ' ' + str.strip(x) + ' ' # 5.移除左右空白 在左右各加一格空白
+        return x
+    # 根據寶典找銀行
+    def get_bank_寶典(x,寶典):
+        for p in 寶典:
+            if p in x:
+                return p
+        return 'not find'
+
+    def predict_bank(df=text_output,x_col=銀行_col):
+        df['銀行輸入'] = df[銀行_col[0]] +df[銀行_col[1]] +df[銀行_col[2]]
+        df['預測銀行'] = 'not find'
+        for i in df.index:
+            x = df.loc[i,'銀行輸入']
+            # 先試寶典匹配法
+            for a in 銀行列表:
+                if (a in x) & (df.loc[i,'預測銀行'] == 'not find'):
+                    df.loc[i,'預測銀行'] = a
+        # 若寶典匹配不到則用bert
+        not_find_idx = df.loc[df['預測銀行'] == 'not find',:].index
+        if len(not_find_idx) > 0:
+            bert_predict = model_predict(
+                nlp4, #nlp4(銀行)
+                df.rename(columns={'銀行輸入':'string_X_train'}).loc[not_find_idx],
+                question = 'What is the bank name?',
+                start_from0 = False)
+            df.loc[not_find_idx,'預測銀行'] = bert_predict
+        return df
+    text_output = predict_bank(df=text_output,x_col=銀行_col)
+    #==================銀行預測部分==================================================================
+
+    
     # 計算正確與否
     correct = [ i==j for i,j in zip(text_output['集成預測代號'].values.tolist(),text_output['推薦公司事業部'].values.tolist())]
     text_output['集成預測代號'].apply(lambda x:x.replace('nan','not find'))
@@ -359,57 +404,65 @@ if button:
         st.markdown(f'<font>{left}</font> <font color="#FF0000">{mid}</font> <font>{right}</font>', 
         unsafe_allow_html=True)
 
-    def save_color_df(df,save_path):
+    def save_color_df(df,save_path,x_cols=['45A','50','59','銀行輸入'],y_cols=['預測產品(取長度最長)','預測開狀人','預測公司','預測銀行']):
+        # 建立writer
         writer = pd.ExcelWriter(save_path, engine='xlsxwriter')
-        
-        # 在第一個row add 欄位名稱
+        # 將 df 第一個 row 變成欄位名稱
         new_df = pd.DataFrame()
         for i in df.columns:
             new_df[i] = [i] + df[i].values.tolist() 
         df = new_df
-        
+        # 存檔
         df.to_excel(writer, sheet_name='Sheet1', header=False, index=False)
+        # 參數設定
         workbook  = writer.book
         worksheet = writer.sheets['Sheet1']
         cell_format_red = workbook.add_format({'font_color': 'red'})
         cell_format_default = workbook.add_format({'bold': False})
         worksheet.write_row('A1',df.columns.tolist())
-        for row in range(0,df.shape[0]):
-            word = df.iloc[row,:]['預測產品(取長度最長)']
-            detect_col_idx = 0
-            try:
-                # 1st case, wrong word is at the start and there is additional text
-                if (df.iloc[row,detect_col_idx].index(word) == 0) \
-                and (len(df.iloc[row,detect_col_idx]) != len(word)):
-                    worksheet.write_rich_string(row, detect_col_idx, cell_format_red, word,
-                                                cell_format_default,
-                                                df.iloc[row,detect_col_idx][len(word):])
+        # 定義反紅功能函數
+        def add_word_color(df,x_col,y_col):
+            for row in range(0,len(df)):
+                word = df.iloc[row,:][y_col]
+                detect_col_idx = df.columns.tolist().index(x_col)
+                try:
+                    # 1st case, wrong word is at the start and there is additional text
+                    if (df.iloc[row,detect_col_idx].index(word) == 0) \
+                    and (len(df.iloc[row,detect_col_idx]) != len(word)):
+                        worksheet.write_rich_string(row,detect_col_idx,cell_format_red,
+                            word,cell_format_default,df.iloc[row,detect_col_idx][len(word):])
 
-                # 2nd case, wrong word is at the middle of the string
-                elif (df.iloc[row,detect_col_idx].index(word) > 0) \
-                and (df.iloc[row,detect_col_idx].index(word) != len(df.iloc[row,detect_col_idx])-len(word)) \
-                and ('Typo:' not in df.iloc[row,detect_col_idx]):
-                    starting_point = df.iloc[row,detect_col_idx].index(word)
-                    worksheet.write_rich_string(row, detect_col_idx, cell_format_default,
-                                        df.iloc[row,detect_col_idx][0:starting_point],
-                                        cell_format_red, word, cell_format_default,
-                                        df.iloc[row,detect_col_idx][starting_point+len(word):])
+                    # 2nd case, wrong word is at the middle of the string
+                    elif (df.iloc[row,detect_col_idx].index(word) > 0) \
+                    and (df.iloc[row,detect_col_idx].index(word) != len(df.iloc[row,detect_col_idx])-len(word)) \
+                    and ('Typo:' not in df.iloc[row,detect_col_idx]):
+                        starting_point = df.iloc[row,detect_col_idx].index(word)
+                        worksheet.write_rich_string(row, detect_col_idx, cell_format_default,
+                                            df.iloc[row,detect_col_idx][0:starting_point],
+                                            cell_format_red, word, cell_format_default,
+                                            df.iloc[row,detect_col_idx][starting_point+len(word):])
 
-                # 3rd case, wrong word is at the end of the string
-                elif (df.iloc[row,detect_col_idx].index(word) > 0) \
-                and (df.iloc[row,detect_col_idx].index(word) == len(df.iloc[row,detect_col_idx])-len(word)):
-                    starting_point = df.iloc[row,detect_col_idx].index(word)
-                    worksheet.write_rich_string(row, detect_col_idx, cell_format_default,
-                                                df.iloc[row,detect_col_idx][0:starting_point],
-                                                cell_format_red, word)
+                    # 3rd case, wrong word is at the end of the string
+                    elif (df.iloc[row,detect_col_idx].index(word) > 0) \
+                    and (df.iloc[row,detect_col_idx].index(word) == len(df.iloc[row,detect_col_idx])-len(word)):
+                        starting_point = df.iloc[row,detect_col_idx].index(word)
+                        worksheet.write_rich_string(row, detect_col_idx, cell_format_default,
+                                                    df.iloc[row,detect_col_idx][0:starting_point],
+                                                    cell_format_red, word)
 
-                # 4th case, wrong word is the only one in the string
-                elif (df.iloc[row,detect_col_idx].index(word) == 0) \
-                and (len(df.iloc[row,detect_col_idx]) == len(word)):
-                    worksheet.write(row, detect_col_idx, word, cell_format_red)
+                    # 4th case, wrong word is the only one in the string
+                    elif (df.iloc[row,detect_col_idx].index(word) == 0) \
+                    and (len(df.iloc[row,detect_col_idx]) == len(word)):
+                        worksheet.write(row, detect_col_idx, word, cell_format_red)
 
-            except ValueError:
-                continue
+                except ValueError:
+                    continue
+        
+        # 執行多次反紅功能函數
+        for x,y in zip(x_cols,y_cols):
+            add_word_color(df,x,y)
+        
+        # 存檔
         writer.save()
     
     # 展示正確率
