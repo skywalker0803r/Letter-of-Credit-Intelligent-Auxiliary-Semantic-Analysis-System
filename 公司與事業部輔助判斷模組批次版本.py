@@ -372,11 +372,30 @@ if button:
     text_output.loc[text_output['正確與否']=='no','錯誤原因'] = '訓練使用的數據跟此份測試資料的代號不一致(可能還需釐清廠方提供數據是否有錯誤)'
     text_output.loc[text_output['根據產品預測部門']=='寶典裡沒有','錯誤原因'] = '寶典裡找不到,因此調用bert預測,預測出的產品在寶典裡沒有'
 
+    #======================找對應的信用狀代碼==========================================================
+    text_output['信用狀代碼(LCNO)'] = 'not find'
+    信用狀代碼對應表 = pd.read_csv('.\data\對應表\信用狀代碼對應表.csv')
+    my_bar = st.progress(0)
+    for percent_complete,i in enumerate(text_output.index):
+        my_bar.progress(percent_complete/len(text_output))
+        產品 = text_output.loc[i,'預測產品(取長度最長)']
+        開狀人 = text_output.loc[i,'預測開狀人']
+        受益人 = text_output.loc[i,'受益人']
+        開狀銀行 = text_output.loc[i,'開狀銀行']
+        jac = {}
+        for j in 信用狀代碼對應表.index:
+            jac[j] = get_jaccard_sim(str(產品),str(信用狀代碼對應表.loc[j,'產品名']))+\
+                get_jaccard_sim(str(開狀人),str(信用狀代碼對應表.loc[j,'開狀人']))+\
+                    get_jaccard_sim(str(受益人),str(信用狀代碼對應表.loc[j,'受益人']))+\
+                        get_jaccard_sim(str(開狀銀行),str(信用狀代碼對應表.loc[j,'開狀銀行']))
+        max_jac_idx = max(jac,key=jac.get)
+        text_output.loc[i,'信用狀代碼(LCNO)'] = str(信用狀代碼對應表.loc[max_jac_idx,'LCNO'])
+    #==================================================================================================
+
     # 展示結果
     st.write('==================================')
     st.write(text_output)
     st.write('==================================')
-
 
     # 改顏色
     def change_color(a):
