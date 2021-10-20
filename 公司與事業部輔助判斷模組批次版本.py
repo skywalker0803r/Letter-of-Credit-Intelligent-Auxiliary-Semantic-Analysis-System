@@ -280,27 +280,27 @@ if button:
 
     def predict_company(df=text_output,x_col=x_col3):
         df['59'] = df['59'].apply(lambda x:preprocess_59(x))
-        df['預測公司'] = 'not find'
+        df['受益人'] = 'not find'
         for i in df.index:
             x = df.loc[i,x_col]
             # 1寶典匹配法
             for a in 公司寶典['公司英文名稱'].values.tolist():
-                if (a in x) & (df.loc[i,'預測公司'] == 'not find'):
-                    df.loc[i,'預測公司'] = a
+                if (a in x) & (df.loc[i,'受益人'] == 'not find'):
+                    df.loc[i,'受益人'] = a
             # 2尾綴匹配法
             for b in 公司寶典['尾綴'].values.tolist():
-                if (b in x) & (df.loc[i,'預測公司'] == 'not find'):
-                    df.loc[i,'預測公司'] = x[:x.find(b)+len(b)]
+                if (b in x) & (df.loc[i,'受益人'] == 'not find'):
+                    df.loc[i,'受益人'] = x[:x.find(b)+len(b)]
         # 若 1,2 方法都不行則用bert
-        not_find_idx = df.loc[df['預測公司'] == 'not find',:].index
+        not_find_idx = df.loc[df['受益人'] == 'not find',:].index
         if len(not_find_idx) > 0:
             bert_predict = model_predict(
                 nlp3, #nlp3(公司)
                 df.rename(columns={x_col:'string_X_train'}).loc[not_find_idx],
                 question = 'What is the company name?',
                 start_from0 = True)
-            df.loc[not_find_idx,'預測公司'] = bert_predict
-        df['利用公司名稱預測公司代號'] = [公司寶典.loc[公司寶典['公司英文名稱'] == x,'代號'].values[0] if x in 公司寶典['公司英文名稱'].values else 'not find' for x in df['預測公司'].values]
+            df.loc[not_find_idx,'受益人'] = bert_predict
+        df['利用公司名稱預測公司代號'] = [公司寶典.loc[公司寶典['公司英文名稱'] == x,'代號'].values[0] if x in 公司寶典['公司英文名稱'].values else 'not find' for x in df['受益人'].values]
         return df
     text_output = predict_company(df=text_output,x_col=x_col3)
 
@@ -342,23 +342,23 @@ if button:
         return 'not find'
 
     def predict_bank(df=text_output,x_col=銀行_col):
-        df['銀行輸入'] = df[銀行_col[0]] +df[銀行_col[1]] +df[銀行_col[2]]
-        df['預測銀行'] = 'not find'
+        df['銀行輸入'] = df[銀行_col[0]] + ' ' + df[銀行_col[1]] + ' ' + df[銀行_col[2]]
+        df['開狀銀行'] = 'not find'
         for i in df.index:
             x = df.loc[i,'銀行輸入']
             # 先試寶典匹配法
             for a in 銀行列表:
-                if (a in x) & (df.loc[i,'預測銀行'] == 'not find'):
-                    df.loc[i,'預測銀行'] = a
+                if (a in x) & (df.loc[i,'開狀銀行'] == 'not find'):
+                    df.loc[i,'開狀銀行'] = a
         # 若寶典匹配不到則用bert
-        not_find_idx = df.loc[df['預測銀行'] == 'not find',:].index
+        not_find_idx = df.loc[df['開狀銀行'] == 'not find',:].index
         if len(not_find_idx) > 0:
             bert_predict = model_predict(
                 nlp4, #nlp4(銀行)
                 df.rename(columns={'銀行輸入':'string_X_train'}).loc[not_find_idx],
                 question = 'What is the bank name?',
                 start_from0 = False)
-            df.loc[not_find_idx,'預測銀行'] = bert_predict
+            df.loc[not_find_idx,'開狀銀行'] = bert_predict
         return df
     text_output = predict_bank(df=text_output,x_col=銀行_col)
     #==================銀行預測部分==================================================================
@@ -404,7 +404,7 @@ if button:
         st.markdown(f'<font>{left}</font> <font color="#FF0000">{mid}</font> <font>{right}</font>', 
         unsafe_allow_html=True)
 
-    def save_color_df(df,save_path,x_cols=['45A','50','59','銀行輸入'],y_cols=['預測產品(取長度最長)','預測開狀人','預測公司','預測銀行']):
+    def save_color_df(df,save_path,x_cols=['45A','50','59','銀行輸入'],y_cols=['預測產品(取長度最長)','預測開狀人','受益人','開狀銀行']):
         # 建立writer
         writer = pd.ExcelWriter(save_path, engine='xlsxwriter')
         # 將 df 第一個 row 變成欄位名稱
