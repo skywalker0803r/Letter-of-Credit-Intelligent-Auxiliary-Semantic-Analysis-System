@@ -82,8 +82,8 @@ def Collection_method(df,產品集合,x_col):
         my_bar.progress(percent_complete/len(df))
         products = []
         for p in 產品集合:
-            if p in df.loc[i,x_col]:
-                products.append(p) # 加入候選清單
+            if str(p) in str(df.loc[i,x_col]):
+                products.append(str(p)) # 加入候選清單
         if len(products) > 0: # 如果有找到產品 
             labels[i] = products # 複數個產品,之後配合公司去篩選出一個
             labels_max[i] = max(products,key=len) # 取長度最長的產品
@@ -142,12 +142,13 @@ tag = st.text_input('請輸入預測結果保存檔案名稱')
 # 判斷檔案是哪一種格式
 if test_df is not None:
     try:
-        test_df = pd.read_csv(test_df,index_col=0)
+        test_df = pd.read_csv(test_df,index_col=0).reset_index(drop=True)
     except:
-        test_df = pd.read_excel(test_df,index_col=0)
+        test_df = pd.read_excel(test_df,index_col=0).reset_index(drop=True)
 
 # 針對45欄位輸入做預處理
-test_df['45A'] = test_df['45A'].apply(lambda x:preprocess_45(x)) 
+st.write(f'test_df.shape:{test_df.shape}')
+test_df['45A'] = test_df['45A'].apply(lambda x:preprocess_45(x))
 st.text('測試資料')
 st.write(test_df)
 
@@ -215,6 +216,7 @@ if button:
     not_find_idx = text_output.loc[text_output['預測產品'] == 'not find',:].index
     if len(not_find_idx) > 0:
         bert_predict = model_predict(nlp,test_df.loc[not_find_idx])
+        st.write(np.array(bert_predict).shape,text_output.loc[not_find_idx].shape,test_df.loc[not_find_idx].shape)
         text_output.loc[not_find_idx,'預測產品'] = [ [i] for i in bert_predict]
         text_output.loc[not_find_idx,'預測產品(取長度最長)'] = bert_predict
         text_output.loc[not_find_idx,'預測產品使用方式'] = 'bert'
