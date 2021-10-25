@@ -103,12 +103,14 @@ def add_space(x):
         return x
 
 def bert_postprocess(x):
+    x = str(x)
     x = x.replace('QUANTITY','')
     if 'PACKING' in x: #像這個 有辦法將 packing之後的都幹掉嗎
         x = x[:x.find('PACKING')+len('PACKING')]
     return x
 
 def product_name_postprocess(x):
+    x = str(x)
     x = x.replace('-',' ')
     x = x.strip()
     x = add_space(x)
@@ -153,15 +155,24 @@ st.write(test_df)
 train_df = pd.read_csv('./data/preprocess_for_SQUAD_產品.csv')[['string_X_train','Y_label','EXPNO']]
 train_df['Y_label'] = train_df['Y_label'].apply(lambda x:product_name_postprocess(x))
 
-# 讀取台塑網提供之(寶典)
-df1 = pd.read_excel('./data/寶典/台塑企業_ 產品寶典20210303.xlsx',engine='openpyxl')[['公司代號','公司事業部門','品名']]
-df2 = pd.read_excel('./data/寶典/寶典.v3.台塑網.20210901.xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
+# 讀取台塑網提供之(寶典人工手動修正過刪除線問題)
+root = './data/寶典/寶典人工處理後/'
+
+df1 = pd.read_excel(root+'台塑企業_ 產品寶典20210303.xlsx',engine='openpyxl')[['公司代號','公司事業部門','品名']]
+
+df2 = pd.read_excel(root+'寶典.v3.台塑網.20210901.xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
 df2 = df2.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
-df3 = pd.read_excel('./data/寶典/寶典.v4.20211001.xlsx',engine='openpyxl')
+
+df3 = pd.read_excel(root+'寶典.v4.20211001.xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
 df3 = df3.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
-df4 = pd.read_excel('./data/寶典/寶典.v5.20211006.xlsx',engine='openpyxl')
+
+df4 = pd.read_excel(root+'寶典.v5.20211006.xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
 df4 = df4.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
-df = df1.append(df2).append(df3).append(df4) # 合併所有寶典
+
+df5 = pd.read_excel(root+'寶典.v6.20211020.xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
+df5 = df5.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
+
+df = df1.append(df2).append(df3).append(df4).append(df5) # 合併所有寶典
 df['品名'] = df['品名'].apply(lambda x:product_name_postprocess(x)) #品名後處理
 
 # 讀取開狀人寶典,尾綴
@@ -499,7 +510,7 @@ if button:
     st.write(f'忽略訓練使用的數據跟此份測試資料的代號不一致的問題後正確率:{get_acc(ignore_error_text_output)}')
     
     # 保存結果到資料夾
-    folder = './predict_result/'
+    folder = './data/測試結果/'
     if not os.path.exists(folder):
         os.makedirs(folder)
     save_path = f'./predict_result/{tag}.xlsx'
