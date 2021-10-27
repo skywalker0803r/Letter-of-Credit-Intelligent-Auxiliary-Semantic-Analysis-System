@@ -332,14 +332,11 @@ if button:
                 text_output.loc[idx,'集成預測代號'] = 公司預測代號
                 continue
             
-            # case 2 判斷第一碼做初步篩選,再用jacs取最高
+            # case 2 判斷第一碼做初步篩選,再取眾數
             for i in 產品預測代號列表:
                 if int(i[0]) != int(公司預測代號[0]): #看第一碼對不對
                     產品預測代號列表.remove(i) # 不對就移除
-            jacs = {}
-            for i in 產品預測代號列表:
-                jacs[i] = get_jaccard_sim(i,公司預測代號)
-            text_output.loc[idx,'集成預測代號'] = max(jacs,key=jacs.get)
+            text_output.loc[idx,'集成預測代號'] = stats.mode(產品預測代號列表)[0][0] # 取眾數
         except:
             text_output.loc[idx,'集成預測代號'] = str(text_output.loc[idx,'利用公司名稱預測公司代號'])
     
