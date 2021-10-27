@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+from scipy import stats
 import joblib
 import torch
 import random
@@ -82,7 +83,7 @@ def Collection_method(df,產品集合,x_col):
         my_bar.progress(percent_complete/len(df))
         products = []
         for p in 產品集合:
-            if str(p) in str(df.loc[i,x_col]):
+            if (str(p) in str(df.loc[i,x_col])) | (get_jaccard_sim(str(p),str(df.loc[i,x_col]))>=0.9):
                 products.append(str(p)) # 加入候選清單
         if len(products) > 0: # 如果有找到產品 
             labels[i] = products # 複數個產品,之後配合公司去篩選出一個
@@ -322,6 +323,10 @@ if button:
         try:
             公司預測代號 = str(text_output.loc[idx,'利用公司名稱預測公司代號'])
             產品預測代號列表 = text_output.loc[idx,'根據產品預測代號'].copy()
+            # case 0 如果公司預測是not find
+            if 公司預測代號 == 'not find':
+                text_output.loc[idx,'集成預測代號'] = stats.mode(產品預測代號列表)[0][0] # 取眾數
+                continue
             # case 1直接匹配
             if 公司預測代號 in 產品預測代號列表:
                 text_output.loc[idx,'集成預測代號'] = 公司預測代號
