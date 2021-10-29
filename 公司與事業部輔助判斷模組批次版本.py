@@ -314,6 +314,8 @@ if button:
                 question = 'What is the company name?',
                 start_from0 = True)
             df.loc[not_find_idx,'受益人'] = bert_predict
+        
+        # 這裡應該可以做模糊比對不要 not find
         df['利用公司名稱預測公司代號'] = [公司寶典.loc[公司寶典['公司英文名稱'] == x,'代號'].values[0] if x in 公司寶典['公司英文名稱'].values else 'not find' for x in df['受益人'].values]
         return df
     text_output = predict_company(df=text_output,x_col=x_col3)
