@@ -315,8 +315,17 @@ if button:
                 start_from0 = True)
             df.loc[not_find_idx,'受益人'] = bert_predict
         
-        # 這裡應該可以做模糊比對不要 not find
-        df['利用公司名稱預測公司代號'] = [公司寶典.loc[公司寶典['公司英文名稱'] == x,'代號'].values[0] if x in 公司寶典['公司英文名稱'].values else 'not find' for x in df['受益人'].values]
+        # 新代碼 模糊比對
+        def 公司映射代號(x):
+            jacs = {}
+            for i in 公司寶典.index:
+                jacs[公司寶典.loc[i,'代號']] = get_jaccard_sim(x,公司寶典.loc[i,'公司英文名稱'])
+            return max(jacs,key=jacs.get)
+        df['利用公司名稱預測公司代號'] = [公司映射代號(x) for x in df['受益人'].values]
+        
+        # 原代碼(完全比對)是下面這一行
+        #df['利用公司名稱預測公司代號'] = [公司寶典.loc[公司寶典['公司英文名稱'] == x,'代號'].values[0] if x in 公司寶典['公司英文名稱'].values else 'not find' for x in df['受益人'].values]
+        
         return df
     text_output = predict_company(df=text_output,x_col=x_col3)
 
