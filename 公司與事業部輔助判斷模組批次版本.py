@@ -268,7 +268,7 @@ if button:
                     df.loc[i,'預測開狀人'] = a
             # 2尾綴匹配法
             for b in 開狀人尾綴['尾綴'].values.tolist():
-                if (b in x) & (df.loc[i,'預測開狀人']=='not find'):
+                if (str(b) in str(x)) & (df.loc[i,'預測開狀人']=='not find'):
                     df.loc[i,'預測開狀人'] = x[:x.find(b)+len(b)]
         # 若 1,2 方法都不行則用bert
         not_find_idx = df.loc[df['預測開狀人'] == 'not find',:].index
@@ -303,7 +303,7 @@ if button:
                     df.loc[i,'受益人'] = a
             # 2尾綴匹配法
             for b in 公司寶典['尾綴'].values.tolist():
-                if (b in x) & (df.loc[i,'受益人'] == 'not find'):
+                if (str(b) in str(x)) & (df.loc[i,'受益人'] == 'not find'):
                     df.loc[i,'受益人'] = x[:x.find(b)+len(b)]
         # 若 1,2 方法都不行則用bert
         not_find_idx = df.loc[df['受益人'] == 'not find',:].index
