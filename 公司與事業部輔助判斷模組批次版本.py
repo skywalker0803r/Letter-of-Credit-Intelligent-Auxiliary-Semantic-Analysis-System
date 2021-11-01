@@ -217,7 +217,6 @@ if button:
     not_find_idx = text_output.loc[text_output['預測產品'] == 'not find',:].index
     if len(not_find_idx) > 0:
         bert_predict = model_predict(nlp,test_df.loc[not_find_idx])
-        st.write(np.array(bert_predict).shape,text_output.loc[not_find_idx].shape,test_df.loc[not_find_idx].shape)
         text_output.loc[not_find_idx,'預測產品'] = [ [i] for i in bert_predict]
         text_output.loc[not_find_idx,'預測產品(取長度最長)'] = bert_predict
         text_output.loc[not_find_idx,'預測產品使用方式'] = 'bert'
@@ -228,22 +227,28 @@ if button:
             return str(品名2部門寶典[x])
         elif x in train_df['Y_label'].values.tolist(): #找不到從訓練資料找
             return find_department(x)
-        else:
-            return '寶典裡沒有'
+        else:# 模糊比對
+            jacs = {}
+            for i in 品名2部門寶典.keys():
+                jacs[i] = get_jaccard_sim(x,i)
+            x = max(jacs,key=jacs.get)
+            return map2部門(x)
     
     def map2代號(x):
         if  x in 品名2代號寶典.keys(): #先從寶典找
             return str(品名2代號寶典[x])
         elif x in 品名2代號訓練資料.keys(): #找不到從訓練資料找
             return str(品名2代號訓練資料[x])
-        else:
-            return '寶典裡沒有'
+        else:# 模糊比對
+            jacs = {}
+            for i in 品名2代號寶典.keys():
+                jacs[i] = get_jaccard_sim(x,i)
+            x = max(jacs,key=jacs.get)
+            return map2代號(x)
     
     # 利用產品名去對應部門跟代號
     text_output['根據產品預測部門'] = [[map2部門(i) for i in lst] for lst in text_output['預測產品'].values]
     text_output['根據產品預測代號'] = [[map2代號(i) for i in lst] for lst in text_output['預測產品'].values]
-    text_output['根據產品預測部門'].fillna('寶典裡沒有',inplace=True)
-    text_output['根據產品預測代號'].fillna('寶典裡沒有',inplace=True)
     text_output = pd.concat([test_df,text_output.iloc[:,:]],axis=1)
     col_45A = text_output['45A'].values.tolist()
     text_output = text_output.drop(['45A'],axis=1)
@@ -315,17 +320,13 @@ if button:
                 start_from0 = True)
             df.loc[not_find_idx,'受益人'] = bert_predict
         
-        # 新代碼 模糊比對
+        # 模糊比對
         def 公司映射代號(x):
             jacs = {}
             for i in 公司寶典.index:
                 jacs[公司寶典.loc[i,'代號']] = get_jaccard_sim(x,公司寶典.loc[i,'公司英文名稱'])
             return max(jacs,key=jacs.get)
         df['利用公司名稱預測公司代號'] = [公司映射代號(x) for x in df['受益人'].values]
-        
-        # 原代碼(完全比對)是下面這一行
-        #df['利用公司名稱預測公司代號'] = [公司寶典.loc[公司寶典['公司英文名稱'] == x,'代號'].values[0] if x in 公司寶典['公司英文名稱'].values else 'not find' for x in df['受益人'].values]
-        
         return df
     text_output = predict_company(df=text_output,x_col=x_col3)
 
@@ -521,6 +522,8 @@ if button:
         result = pd.DataFrame({'correct':correct})
         return result['correct'].value_counts()['yes']/len(result)
     st.write(f'正確率:{get_acc(text_output)}')
+    錯誤筆數 = len(text_output.loc[text_output['正確與否']=='no',:])
+    st.write(f'錯誤筆數:{錯誤筆數}')
     ignore_error_text_output = text_output.loc[text_output['錯誤原因'] != '訓練使用的數據跟此份測試資料的代號不一致(可能還需釐清廠方提供數據是否有錯誤)']
     st.write(f'忽略訓練使用的數據跟此份測試資料的代號不一致的問題後正確率:{get_acc(ignore_error_text_output)}')
     
