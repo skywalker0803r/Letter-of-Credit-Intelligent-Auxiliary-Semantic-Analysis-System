@@ -83,7 +83,7 @@ def Collection_method(df,產品集合,x_col):
         my_bar.progress(percent_complete/len(df))
         products = []
         for p in 產品集合:
-            if (str(p) in str(df.loc[i,x_col])) | (get_jaccard_sim(str(p),str(df.loc[i,x_col]))>=0.9):
+            if (str(p) in str(df.loc[i,x_col])) | (get_jaccard_sim(str(p),str(df.loc[i,x_col]))>=0.9): # 模糊比對
                 products.append(str(p)) # 加入候選清單
         if len(products) > 0: # 如果有找到產品 
             labels[i] = products # 複數個產品,之後配合公司去篩選出一個
@@ -119,17 +119,17 @@ def product_name_postprocess(x):
 
 # 載入訓練好的模型(產品) 簡稱 nlp
 # 載入訓練好的模型(開狀人) 簡稱 nlp2
-def load_nlp(path):
-    tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
-    model = DistilBertForQuestionAnswering.from_pretrained("distilbert-base-uncased")
+def load_nlp(path,model,tokenizer):
     model.load_state_dict(torch.load(path))
     model.eval()
     nlp = pipeline('question-answering', model=model.to('cpu'), tokenizer=tokenizer)
     return nlp
-nlp = load_nlp('./models/Product_Data_SQuAD_model_product.pt')
-nlp2 = load_nlp('./models/Product_Data_SQuAD_model_開狀人.pt')
-nlp3 = load_nlp('./models/Product_Data_SQuAD_model_公司.pt')
-nlp4 = load_nlp('./models/Product_Data_SQuAD_model_銀行.pt')
+tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
+model = DistilBertForQuestionAnswering.from_pretrained("distilbert-base-uncased")
+nlp = load_nlp('./models/Product_Data_SQuAD_model_product.pt',model,tokenizer)
+nlp2 = load_nlp('./models/Product_Data_SQuAD_model_開狀人.pt',model,tokenizer)
+nlp3 = load_nlp('./models/Product_Data_SQuAD_model_公司.pt',model,tokenizer)
+nlp4 = load_nlp('./models/Product_Data_SQuAD_model_銀行.pt',model,tokenizer)
 
 # 上傳測試檔案
 st.text('請上傳csv或xlsx格式的檔案')
@@ -211,6 +211,7 @@ button = st.button('predict')
 
 # 推論按鈕
 if button:
+    debug_mode = True
     # 先用規則
     text_output = Collection_method(test_df, 產品集合 ,x_col)
     # 若規則無解則用bert
@@ -226,12 +227,12 @@ if button:
         if x in 品名2部門寶典.keys(): #先從寶典找
             return str(品名2部門寶典[x])
         elif x in train_df['Y_label'].values.tolist(): #找不到從訓練資料找
-            return find_department(x)
+            return str(find_department(x))
         else:# 模糊比對
             jacs = {}
             for i in 品名2部門寶典.keys():
                 jacs[i] = get_jaccard_sim(x,i)
-            x = max(jacs,key=jacs.get)
+            x = max(jacs,key=jacs.get) # 模糊比對
             return map2部門(x)
     
     def map2代號(x):
@@ -243,7 +244,7 @@ if button:
             jacs = {}
             for i in 品名2代號寶典.keys():
                 jacs[i] = get_jaccard_sim(x,i)
-            x = max(jacs,key=jacs.get)
+            x = max(jacs,key=jacs.get) # 模糊比對
             return map2代號(x)
     
     # 利用產品名去對應部門跟代號
@@ -332,25 +333,31 @@ if button:
 
     text_output['集成預測代號'] = 'not find'
     for idx in text_output.index:
+        公司預測代號 = str(text_output.loc[idx,'利用公司名稱預測公司代號'])
+        產品預測代號列表 = text_output.loc[idx,'根據產品預測代號'].copy()
         try:
-            公司預測代號 = str(text_output.loc[idx,'利用公司名稱預測公司代號'])
-            產品預測代號列表 = text_output.loc[idx,'根據產品預測代號'].copy()
-            # case 0 如果公司預測是not find
-            if 公司預測代號 == 'not find':
-                text_output.loc[idx,'集成預測代號'] = stats.mode(產品預測代號列表)[0][0] # 取眾數
+            # case 0 
+            if 公司預測代號 .isalpha(): # 例如RS
+                text_output.loc[idx,'集成預測代號'] = 公司預測代號
                 continue
-            # case 1直接匹配
+
+            # case 1 如果兩者有交集 直接匹配
             if 公司預測代號 in 產品預測代號列表:
                 text_output.loc[idx,'集成預測代號'] = 公司預測代號
                 continue
             
             # case 2 判斷第一碼做初步篩選,再取眾數
             for i in 產品預測代號列表:
-                if int(i[0]) != int(公司預測代號[0]): #看第一碼對不對
-                    產品預測代號列表.remove(i) # 不對就移除
-            text_output.loc[idx,'集成預測代號'] = stats.mode(產品預測代號列表)[0][0] # 取眾數
+                assert (len(i) == 2) & (type(i) == type('string'))
+                assert (len(公司預測代號) == 2) & (type(公司預測代號) == type('string'))
+                if i[0] != 公司預測代號[0]: #看第一碼對不對
+                    產品預測代號列表.remove(i)
+            if len(產品預測代號列表) != 0: # 不為空列表
+                text_output.loc[idx,'集成預測代號'] = stats.mode(產品預測代號列表)[0][0] # 從候選清單取眾數
+            else:
+                text_output.loc[idx,'集成預測代號'] = 公司預測代號
         except:
-            text_output.loc[idx,'集成預測代號'] = str(text_output.loc[idx,'利用公司名稱預測公司代號'])
+            text_output.loc[idx,'集成預測代號'] = 公司預測代號
     
     #==================銀行預測部分==================================================================
     def preprocess_銀行(x):
@@ -393,36 +400,42 @@ if button:
     
     # 計算正確與否
     correct = [ i==j for i,j in zip(text_output['集成預測代號'].values.tolist(),text_output['推薦公司事業部'].values.tolist())]
-    text_output['集成預測代號'].apply(lambda x:x.replace('nan','not find'))
     text_output['正確與否'] = [ 'yes' if i == True else 'no' for i in correct]
     text_output['錯誤原因'] = '無錯誤'
     text_output.loc[text_output['正確與否']=='no','錯誤原因'] = '訓練使用的數據跟此份測試資料的代號不一致(可能還需釐清廠方提供數據是否有錯誤)'
     text_output.loc[text_output['根據產品預測部門']=='寶典裡沒有','錯誤原因'] = '寶典裡找不到,因此調用bert預測,預測出的產品在寶典裡沒有'
 
     #======================找對應的信用狀代碼==========================================================
-    text_output['信用狀代碼(LCNO)'] = 'not find'
-    信用狀代碼對應表 = pd.read_csv('.\data\對應表\信用狀代碼對應表.csv')
-    my_bar = st.progress(0)
-    for percent_complete,i in enumerate(text_output.index):
-        my_bar.progress(percent_complete/len(text_output))
-        產品 = text_output.loc[i,'預測產品(取長度最長)']
-        開狀人 = text_output.loc[i,'預測開狀人']
-        受益人 = text_output.loc[i,'受益人']
-        開狀銀行 = text_output.loc[i,'開狀銀行']
-        jac = {}
-        for j in 信用狀代碼對應表.index:
-            jac[j] = get_jaccard_sim(str(產品),str(信用狀代碼對應表.loc[j,'產品名']))+\
-                get_jaccard_sim(str(開狀人),str(信用狀代碼對應表.loc[j,'開狀人']))+\
-                    get_jaccard_sim(str(受益人),str(信用狀代碼對應表.loc[j,'受益人']))+\
-                        get_jaccard_sim(str(開狀銀行),str(信用狀代碼對應表.loc[j,'開狀銀行']))
-        max_jac_idx = max(jac,key=jac.get)
-        text_output.loc[i,'信用狀代碼(LCNO)'] = str(信用狀代碼對應表.loc[max_jac_idx,'LCNO'])
+    if debug_mode == False:
+        text_output['信用狀代碼(LCNO)'] = 'not find'
+        信用狀代碼對應表 = pd.read_csv('.\data\對應表\信用狀代碼對應表.csv')
+        my_bar = st.progress(0)
+        for percent_complete,i in enumerate(text_output.index):
+            my_bar.progress(percent_complete/len(text_output))
+            產品 = text_output.loc[i,'預測產品(取長度最長)']
+            開狀人 = text_output.loc[i,'預測開狀人']
+            受益人 = text_output.loc[i,'受益人']
+            開狀銀行 = text_output.loc[i,'開狀銀行']
+            jac = {}
+            for j in 信用狀代碼對應表.index:
+                jac[j] = get_jaccard_sim(str(產品),str(信用狀代碼對應表.loc[j,'產品名']))+\
+                    get_jaccard_sim(str(開狀人),str(信用狀代碼對應表.loc[j,'開狀人']))+\
+                        get_jaccard_sim(str(受益人),str(信用狀代碼對應表.loc[j,'受益人']))+\
+                            get_jaccard_sim(str(開狀銀行),str(信用狀代碼對應表.loc[j,'開狀銀行']))
+            max_jac_idx = max(jac,key=jac.get)
+            text_output.loc[i,'信用狀代碼(LCNO)'] = str(信用狀代碼對應表.loc[max_jac_idx,'LCNO'])
     #==================================================================================================
 
     # 展示結果
-    st.write('==================================')
-    st.write(text_output)
-    st.write('==================================')
+    if debug_mode == True:
+        st.write('==================================')
+        st.write(text_output.loc[text_output['錯誤原因']!='無錯誤',['受益人','預測產品','預測產品(取長度最長)','推薦公司事業部','根據產品預測代號','利用公司名稱預測公司代號','集成預測代號']])
+        st.write('==================================')
+    else:
+        st.write('==================================')
+        st.write(text_output)
+        st.write('==================================')
+
 
     # 改顏色
     def change_color(a):
