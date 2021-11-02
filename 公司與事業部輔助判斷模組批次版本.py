@@ -211,7 +211,7 @@ button = st.button('predict')
 
 # 推論按鈕
 if button:
-    debug_mode = True
+    debug_mode = False
     # 先用規則
     text_output = Collection_method(test_df, 產品集合 ,x_col)
     # 若規則無解則用bert
