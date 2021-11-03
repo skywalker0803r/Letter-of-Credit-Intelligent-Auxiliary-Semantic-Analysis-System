@@ -297,6 +297,25 @@ if button:
         x = x.replace('\n', '').replace('\r', '').replace('\t', '') # 去除換行符號
         x = x.replace('r','').replace('n','')
         return str.strip(x)
+    
+    def predict_divisions(df=text_output,x_col=x_col3):
+        df['59'] = df['59'].apply(lambda x:preprocess_59(x))
+        div表 = pd.read_csv('./data/寶典/DIVSION映射表.csv')
+        df['DIVSION'] = 'not find'
+        for i in df.index:
+            x = df.loc[i,x_col]
+            for a in div表['59'].values:
+                if (str(a) in str(x)) & (df.loc[i,'DIVSION'] == 'not find'):
+                    df.loc[i,'DIVSION'] = a
+        def div映射代號(x):
+            jacs = {'not find':-999}
+            for i in div表.index:
+                jacs[div表.loc[i,'EXPNO']] = get_jaccard_sim(x,div表.loc[i,'59'])
+            return max(jacs,key=jacs.get)
+        df['DIVSION預測代號'] = [ div映射代號(i) for i in df['DIVSION'].values]
+        df.loc[df['DIVSION']=='not find','DIVSION預測代號'] = 'not find'
+        return df
+
 
     def predict_company(df=text_output,x_col=x_col3):
         df['59'] = df['59'].apply(lambda x:preprocess_59(x))
@@ -329,24 +348,33 @@ if button:
             return max(jacs,key=jacs.get)
         df['利用公司名稱預測公司代號'] = [公司映射代號(x) for x in df['受益人'].values]
         return df
+    
     text_output = predict_company(df=text_output,x_col=x_col3)
+    text_output = predict_divisions(df=text_output,x_col=x_col3)
 
     text_output['集成預測代號'] = 'not find'
     for idx in text_output.index:
         公司預測代號 = str(text_output.loc[idx,'利用公司名稱預測公司代號'])
         產品預測代號列表 = text_output.loc[idx,'根據產品預測代號'].copy()
+        DIVSION預測代號 = str(text_output.loc[idx,'DIVSION預測代號'])
+        DIVSION = str(text_output.loc[idx,'DIVSION'])
         try:
-            # case 0 
-            if 公司預測代號 .isalpha(): # 例如RS
+            # 
+            if 公司預測代號.isalpha(): # 例如"RS"
                 text_output.loc[idx,'集成預測代號'] = 公司預測代號
                 continue
+            
+            #
+            if (公司預測代號[0] == DIVSION預測代號[0]) & (DIVSION != 'not find') & (DIVSION預測代號 != "2P"):
+                text_output.loc[idx,'集成預測代號'] = DIVSION預測代號
+                continue
 
-            # case 1 如果兩者有交集 直接匹配
+            # 如果兩者有"交集" 直接匹配
             if 公司預測代號 in 產品預測代號列表:
                 text_output.loc[idx,'集成預測代號'] = 公司預測代號
                 continue
             
-            # case 2 判斷第一碼做初步篩選,再取眾數
+            # 判斷第一碼做初步篩選,再取眾數
             for i in 產品預測代號列表:
                 assert (len(i) == 2) & (type(i) == type('string'))
                 assert (len(公司預測代號) == 2) & (type(公司預測代號) == type('string'))
@@ -356,7 +384,8 @@ if button:
                 text_output.loc[idx,'集成預測代號'] = stats.mode(產品預測代號列表)[0][0] # 從候選清單取眾數
             else:
                 text_output.loc[idx,'集成預測代號'] = 公司預測代號
-        except:
+        except Exception as e:
+            st.write(e)
             text_output.loc[idx,'集成預測代號'] = 公司預測代號
     
     #==================銀行預測部分==================================================================
@@ -429,7 +458,8 @@ if button:
     # 展示結果
     if debug_mode == True:
         st.write('==================================')
-        st.write(text_output.loc[text_output['錯誤原因']!='無錯誤',['受益人','預測產品','預測產品(取長度最長)','推薦公司事業部','根據產品預測代號','利用公司名稱預測公司代號','集成預測代號']])
+        st.write(text_output.loc[text_output['錯誤原因']!='無錯誤',['受益人','預測產品','預測產品(取長度最長)',
+        '推薦公司事業部','根據產品預測代號','利用公司名稱預測公司代號','DIVSION','DIVSION預測代號','集成預測代號']])
         st.write('==================================')
     else:
         st.write('==================================')
