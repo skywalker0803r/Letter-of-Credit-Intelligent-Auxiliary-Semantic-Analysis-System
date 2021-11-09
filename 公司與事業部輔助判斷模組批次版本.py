@@ -359,15 +359,15 @@ if button:
         DIVSION預測代號 = str(text_output.loc[idx,'DIVSION預測代號'])
         DIVSION = str(text_output.loc[idx,'DIVSION'])
         try:
-            # 
+            # 公司預測代號.isalpha()
             if 公司預測代號.isalpha(): # 例如"RS"
                 text_output.loc[idx,'集成預測代號'] = 公司預測代號
                 continue
             
-            #
-            if (公司預測代號[0] == DIVSION預測代號[0]) & (DIVSION != 'not find') & (DIVSION預測代號 != "2P"):
-                text_output.loc[idx,'集成預測代號'] = DIVSION預測代號
-                continue
+            # 還有bug 因此先不使用
+            #if (公司預測代號[0] == DIVSION預測代號[0]) & (DIVSION != 'not find') & (DIVSION預測代號 != "2P"):
+            #    text_output.loc[idx,'集成預測代號'] = DIVSION預測代號
+            #    continue
 
             # 如果兩者有"交集" 直接匹配
             if 公司預測代號 in 產品預測代號列表:
