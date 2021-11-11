@@ -360,7 +360,7 @@ if button:
                 start_from0 = True)
             df.loc[not_find_idx,'受益人'] = bert_predict
         
-        # 模糊比對
+        #模糊比對
         def 公司映射代號(公司英文名稱):
             jacs = {}
             for idx in 公司寶典.index:
