@@ -51,6 +51,32 @@ def get_jaccard_sim(str1, str2):
     c = a.intersection(b)
     return float(len(c)) / (len(a) + len(b) - len(c))
 
+# levenshtein文本相似度
+def levenshtein(seq1, seq2):
+    size_x = len(seq1) + 1
+    size_y = len(seq2) + 1
+    matrix = np.zeros ((size_x, size_y))
+    for x in xrange(size_x):
+        matrix [x, 0] = x
+    for y in xrange(size_y):
+        matrix [0, y] = y
+
+    for x in xrange(1, size_x):
+        for y in xrange(1, size_y):
+            if seq1[x-1] == seq2[y-1]:
+                matrix [x,y] = min(
+                    matrix[x-1, y] + 1,
+                    matrix[x-1, y-1],
+                    matrix[x, y-1] + 1
+                )
+            else:
+                matrix [x,y] = min(
+                    matrix[x-1,y] + 1,
+                    matrix[x-1,y-1] + 1,
+                    matrix[x,y-1] + 1
+                )
+    return (matrix[size_x - 1, size_y - 1])
+
 # 針對模型輸入做預處理
 def preprocess_45(x):
     x = str(x).upper() # 轉大寫字串
@@ -173,17 +199,6 @@ train_df['Y_label'] = train_df['Y_label'].apply(lambda x:product_name_postproces
 
 # 讀取台塑網提供之(寶典人工手動修正過刪除線問題)
 root = './data/寶典/寶典人工處理後/'
-
-#df1 = pd.read_excel(root+'台塑企業_ 產品寶典20210303.xlsx',engine='openpyxl')[['公司代號','公司事業部門','品名']]
-
-#df2 = pd.read_excel(root+'寶典.v3.台塑網.20210901.xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
-#df2 = df2.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
-
-#df3 = pd.read_excel(root+'寶典.v4.20211001.xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
-#df3 = df3.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
-
-#df4 = pd.read_excel(root+'寶典.v5.20211006.xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
-#df4 = df4.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
 
 df5 = pd.read_excel(root+'寶典.v6.20211020.xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
 df5 = df5.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
@@ -362,10 +377,14 @@ if button:
         
         #模糊比對
         def 公司映射代號(公司英文名稱):
-            jacs = {}
+            levens = {}
             for idx in 公司寶典.index:
-                jacs[公司寶典.loc[idx,'代號']] = get_jaccard_sim(公司英文名稱,公司寶典.loc[idx,'公司英文名稱'])#公司的模糊比對
-            return max(jacs,key=jacs.get)
+                levens[公司寶典.loc[idx,'代號']] = levenshtein(公司英文名稱,公司寶典.loc[idx,'公司英文名稱']) #公司的模糊比對
+            Threshold = 3 # 代表替換"n"次字元可以讓兩個字串一致
+            if min(levens.values()) <= Threshold:
+                return min(levens,key=levens.get)
+            else:
+                return 'not find'
         df['利用公司名稱預測公司代號'] = [公司映射代號(公司英文名稱) for 公司英文名稱 in df['受益人'].values]
         return df
     
@@ -382,17 +401,11 @@ if button:
             if 公司預測代號.isalpha(): # 例如"RS"
                 text_output.loc[idx,'集成預測代號'] = 公司預測代號
                 continue
-            
-            # 還有bug 因此先不使用
-            #if (公司預測代號[0] == DIVSION預測代號[0]) & (DIVSION != 'not find') & (DIVSION預測代號 != "2P"):
-            #    text_output.loc[idx,'集成預測代號'] = DIVSION預測代號
-            #    continue
 
-            # 如果兩者有 "交集" 直接匹配
-            #if 公司預測代號 in 產品預測代號列表:
-            #    text_output.loc[idx,'集成預測代號'] = 公司預測代號
-            #    continue
-            
+            if 公司預測代號 == 'not find':
+                text_output.loc[idx,'集成預測代號'] = stats.mode(產品預測代號列表)[0][0]
+                continue
+
             # 判斷第一碼做初步篩選,再取眾數
             for 產品預測代號 in 產品預測代號列表:
                 assert (len(產品預測代號) == 2) & (type(產品預測代號) == type('string'))
