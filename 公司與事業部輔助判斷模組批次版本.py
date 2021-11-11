@@ -30,6 +30,20 @@ def set_seed(seed = int):
     return random_state
 seed = set_seed(42)
 
+# rule對出來的產品名若為其他產品名的子集則剔除
+def remove_subsets_lists(l):
+    max_len_string = max(l) #最長字串
+    l2 = l[:]
+    for m in l:
+        for n in l:
+            if set(m).issubset(set(n)) and m != n:
+                l2.remove(m)
+                break
+    # 確保不為空list
+    if len(l2) == 0:
+        l2 = [max_len_string]
+    return l2
+
 # jaccard文本相似度
 def get_jaccard_sim(str1, str2):
     a = set(str1.split()) 
@@ -178,7 +192,7 @@ df_by_ricky = pd.read_excel(root+'寶典_by_ricky.xlsx',engine='openpyxl')[['COD
 df_by_ricky = df_by_ricky.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
 
 #df = df1.append(df2).append(df3).append(df4).append(df5) # 合併所有寶典
-df = df5.append(df_by_ricky)
+df = df5.append(df_by_ricky) # 合併官方寶典和我做的寶典
 df['品名'] = df['品名'].apply(lambda x:product_name_postprocess(x)) #品名後處理
 
 # 讀取開狀人寶典,尾綴
@@ -186,7 +200,8 @@ df['品名'] = df['品名'].apply(lambda x:product_name_postprocess(x)) #品名�
 開狀人尾綴 = pd.read_csv('./data/寶典/開狀人尾綴.csv')
 
 # 讀取公司寶典,尾綴
-公司寶典 = pd.read_csv('./data/寶典/公司寶典加尾綴(擴充版).csv')
+公司寶典 = pd.read_csv('./data/寶典/公司寶典加尾綴.csv')
+assert len(公司寶典) == 28 #公司名寶典不要擴充
 
 # 製作產品集合(寶典+SPEC)
 產品集合 = set(df['品名'].values.tolist() + train_df['Y_label'].values.tolist())
@@ -252,6 +267,7 @@ if button:
             return map2代號(x)
     
     # 利用產品名去對應部門跟代號
+    text_output['預測產品'] = text_output['預測產品'].apply(remove_subsets_lists)#對出來的產品名若為其他產品名的子集則剔除
     text_output['根據產品預測部門'] = [[map2部門(i) for i in lst] for lst in text_output['預測產品'].values]
     text_output['根據產品預測代號'] = [[map2代號(i) for i in lst] for lst in text_output['預測產品'].values]
     text_output = pd.concat([test_df,text_output.iloc[:,:]],axis=1)
@@ -345,12 +361,12 @@ if button:
             df.loc[not_find_idx,'受益人'] = bert_predict
         
         # 模糊比對
-        def 公司映射代號(x):
+        def 公司映射代號(公司英文名稱):
             jacs = {}
-            for i in 公司寶典.index:
-                jacs[公司寶典.loc[i,'代號']] = get_jaccard_sim(x,公司寶典.loc[i,'公司英文名稱'])
+            for idx in 公司寶典.index:
+                jacs[公司寶典.loc[idx,'代號']] = get_jaccard_sim(公司英文名稱,公司寶典.loc[idx,'公司英文名稱'])#公司的模糊比對
             return max(jacs,key=jacs.get)
-        df['利用公司名稱預測公司代號'] = [公司映射代號(x) for x in df['受益人'].values]
+        df['利用公司名稱預測公司代號'] = [公司映射代號(公司英文名稱) for 公司英文名稱 in df['受益人'].values]
         return df
     
     text_output = predict_company(df=text_output,x_col=x_col3)
@@ -363,7 +379,6 @@ if button:
         DIVSION預測代號 = str(text_output.loc[idx,'DIVSION預測代號'])
         DIVSION = str(text_output.loc[idx,'DIVSION'])
         try:
-            # 公司預測代號.isalpha()
             if 公司預測代號.isalpha(): # 例如"RS"
                 text_output.loc[idx,'集成預測代號'] = 公司預測代號
                 continue
@@ -373,22 +388,21 @@ if button:
             #    text_output.loc[idx,'集成預測代號'] = DIVSION預測代號
             #    continue
 
-            # 如果兩者有"交集" 直接匹配
-            if 公司預測代號 in 產品預測代號列表:
-                text_output.loc[idx,'集成預測代號'] = 公司預測代號
-                continue
+            # 如果兩者有 "交集" 直接匹配
+            #if 公司預測代號 in 產品預測代號列表:
+            #    text_output.loc[idx,'集成預測代號'] = 公司預測代號
+            #    continue
             
             # 判斷第一碼做初步篩選,再取眾數
-            for i in 產品預測代號列表:
-                assert (len(i) == 2) & (type(i) == type('string'))
-                assert (len(公司預測代號) == 2) & (type(公司預測代號) == type('string'))
-                if i[0] != 公司預測代號[0]: #看第一碼對不對
-                    產品預測代號列表.remove(i)
-            if len(產品預測代號列表) != 0: # 不為空列表
+            for 產品預測代號 in 產品預測代號列表:
+                assert (len(產品預測代號) == 2) & (type(產品預測代號) == type('string'))
+                if 產品預測代號[0] != 公司預測代號[0]: #看產品代號第一碼跟公司預測代號第一碼有沒有一致
+                    產品預測代號列表 = list( set(產品預測代號列表)-set([產品預測代號]))
+            if len(產品預測代號列表) != 0: # 如果有找到產品
                 text_output.loc[idx,'集成預測代號'] = stats.mode(產品預測代號列表)[0][0] # 從候選清單取眾數
-            else:
+            else: # 否則用公司代號assign
                 text_output.loc[idx,'集成預測代號'] = 公司預測代號
-        except Exception as e:
+        except Exception as e: #異常處理
             st.write(e)
             text_output.loc[idx,'集成預測代號'] = 公司預測代號
     
