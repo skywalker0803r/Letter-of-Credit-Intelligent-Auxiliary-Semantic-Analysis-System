@@ -51,18 +51,18 @@ def get_jaccard_sim(str1, str2):
     c = a.intersection(b)
     return float(len(c)) / (len(a) + len(b) - len(c))
 
-# levenshtein文本相似度
+# Levenshtein Edit Distance PYTHON
 def levenshtein(seq1, seq2):
     size_x = len(seq1) + 1
     size_y = len(seq2) + 1
     matrix = np.zeros ((size_x, size_y))
-    for x in xrange(size_x):
+    for x in range(size_x):
         matrix [x, 0] = x
-    for y in xrange(size_y):
+    for y in range(size_y):
         matrix [0, y] = y
 
-    for x in xrange(1, size_x):
-        for y in xrange(1, size_y):
+    for x in range(1, size_x):
+        for y in range(1, size_y):
             if seq1[x-1] == seq2[y-1]:
                 matrix [x,y] = min(
                     matrix[x-1, y] + 1,
@@ -203,6 +203,7 @@ root = './data/寶典/寶典人工處理後/'
 df5 = pd.read_excel(root+'寶典.v6.20211020.xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
 df5 = df5.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
 
+# 我做的寶典
 df_by_ricky = pd.read_excel(root+'寶典_by_ricky.xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
 df_by_ricky = df_by_ricky.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
 
@@ -380,7 +381,7 @@ if button:
             levens = {}
             for idx in 公司寶典.index:
                 levens[公司寶典.loc[idx,'代號']] = levenshtein(公司英文名稱,公司寶典.loc[idx,'公司英文名稱']) #公司的模糊比對
-            Threshold = 3 # 代表替換"n"次字元可以讓兩個字串一致
+            Threshold = 3*2 # 代表替換"n"次字元可以讓兩個字串一致
             if min(levens.values()) <= Threshold:
                 return min(levens,key=levens.get)
             else:
@@ -402,7 +403,7 @@ if button:
                 text_output.loc[idx,'集成預測代號'] = 公司預測代號
                 continue
 
-            if 公司預測代號 == 'not find':
+            if 公司預測代號 == 'not find': # 直接取眾數
                 text_output.loc[idx,'集成預測代號'] = stats.mode(產品預測代號列表)[0][0]
                 continue
 
@@ -465,10 +466,10 @@ if button:
     text_output.loc[text_output['正確與否']=='no','錯誤原因'] = '訓練使用的數據跟此份測試資料的代號不一致(可能還需釐清廠方提供數據是否有錯誤)'
     text_output.loc[text_output['根據產品預測部門']=='寶典裡沒有','錯誤原因'] = '寶典裡找不到,因此調用bert預測,預測出的產品在寶典裡沒有'
 
-    #======================找對應的信用狀代碼==========================================================
+    #======================找對應的EXPNO==========================================================
     if debug_mode == False:
-        text_output['信用狀代碼(LCNO)'] = 'not find'
-        信用狀代碼對應表 = pd.read_csv('.\data\對應表\信用狀代碼對應表.csv')
+        text_output['EXPNO'] = 'not find'
+        EXPNO對應表 = pd.read_csv('.\data\對應表\EXPNO對應表.csv')
         my_bar = st.progress(0)
         for percent_complete,i in enumerate(text_output.index):
             my_bar.progress(percent_complete/len(text_output))
@@ -477,13 +478,13 @@ if button:
             受益人 = text_output.loc[i,'受益人']
             開狀銀行 = text_output.loc[i,'開狀銀行']
             jac = {}
-            for j in 信用狀代碼對應表.index:
-                jac[j] = get_jaccard_sim(str(產品),str(信用狀代碼對應表.loc[j,'產品名']))+\
-                    get_jaccard_sim(str(開狀人),str(信用狀代碼對應表.loc[j,'開狀人']))+\
-                        get_jaccard_sim(str(受益人),str(信用狀代碼對應表.loc[j,'受益人']))+\
-                            get_jaccard_sim(str(開狀銀行),str(信用狀代碼對應表.loc[j,'開狀銀行']))
+            for j in EXPNO對應表.index:
+                jac[j] = get_jaccard_sim(str(產品),str(EXPNO對應表.loc[j,'產品名']))+\
+                    get_jaccard_sim(str(開狀人),str(EXPNO對應表.loc[j,'開狀人']))+\
+                        get_jaccard_sim(str(受益人),str(EXPNO對應表.loc[j,'受益人']))+\
+                            get_jaccard_sim(str(開狀銀行),str(EXPNO對應表.loc[j,'開狀銀行']))
             max_jac_idx = max(jac,key=jac.get)
-            text_output.loc[i,'信用狀代碼(LCNO)'] = str(信用狀代碼對應表.loc[max_jac_idx,'LCNO'])
+            text_output.loc[i,'EXPNO'] = str(EXPNO對應表.loc[max_jac_idx,'EXPNO'])
     #==================================================================================================
 
     # 展示結果
