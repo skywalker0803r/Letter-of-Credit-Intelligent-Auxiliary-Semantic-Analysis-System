@@ -220,7 +220,7 @@ df['品名'] = df['品名'].apply(lambda x:product_name_postprocess(x)) #品名�
 assert len(公司寶典) == 28 #公司名寶典不要擴充
 
 # 製作產品集合(寶典+SPEC)
-產品集合 = set(df['品名'].values.tolist() + train_df['Y_label'].values.tolist())
+產品集合 = set(df['品名'].values.tolist())# + train_df['Y_label'].values.tolist())
 
 # 製作對應表(寶典對部門和代號)
 品名2部門寶典 = dict(zip(df['品名'],df['公司事業部門']))
@@ -595,7 +595,10 @@ if button:
             else:
                 correct.append('no')
         result = pd.DataFrame({'correct':correct})
-        return result['correct'].value_counts()['yes']/len(result)
+        try:
+            return result['correct'].value_counts()['yes']/len(result)
+        except:
+            return 0
     st.write(f'正確率:{get_acc(text_output)}')
     錯誤筆數 = len(text_output.loc[text_output['正確與否']=='no',:])
     st.write(f'錯誤筆數:{錯誤筆數}')
