@@ -195,7 +195,9 @@ st.write(test_df)
 
 # 讀取訓練資料(SPEC)
 train_df = pd.read_csv('./data/preprocess_for_SQUAD_產品.csv')[['string_X_train','Y_label','EXPNO']]
+train_df_不加空白版本 = train_df.copy()
 train_df['Y_label'] = train_df['Y_label'].apply(lambda x:product_name_postprocess(x))
+train_df_不加空白版本['Y_label'] = train_df_不加空白版本['Y_label'].apply(lambda x:str(x).replace('-',' ').strip()) #品名後處理
 
 # 讀取台塑網提供之(寶典人工手動修正過刪除線問題)
 root = './data/寶典/寶典人工處理後/'
@@ -209,7 +211,9 @@ df_by_ricky = df_by_ricky.rename(columns={'ITEMNM':'品名','DIVNM':'公司事�
 
 #df = df1.append(df2).append(df3).append(df4).append(df5) # 合併所有寶典
 df = df5.append(df_by_ricky) # 合併官方寶典和我做的寶典
+df_不加空白版本 = df.copy()
 df['品名'] = df['品名'].apply(lambda x:product_name_postprocess(x)) #品名後處理
+df_不加空白版本['品名'] = df_不加空白版本['品名'].apply(lambda x:str(x).replace('-',' ').strip()) #品名後處理
 
 # 讀取開狀人寶典,尾綴
 開狀人寶典 = pd.read_csv('./data/寶典/開狀人寶典.csv')
@@ -221,6 +225,7 @@ assert len(公司寶典) == 28 #公司名寶典不要擴充
 
 # 製作產品集合(寶典+SPEC)
 產品集合 = set(df['品名'].values.tolist() + train_df['Y_label'].values.tolist())
+產品集合_不加空白版本 = set(df_不加空白版本['品名'].values.tolist() + train_df_不加空白版本['Y_label'].values.tolist())
 
 # 製作對應表(寶典對部門和代號)
 品名2部門寶典 = dict(zip(df['品名'],df['公司事業部門']))
@@ -247,9 +252,16 @@ button = st.button('predict')
 # 推論按鈕
 if button:
     debug_mode = False
+    
     # 先用規則
     text_output = Collection_method(test_df, 產品集合 ,x_col)
-    # 若規則無解則用bert
+    
+    # 若規則無解則改一下產品集合(不加空白)
+    not_find_idx = text_output.loc[text_output['預測產品'] == 'not find',:].index
+    if len(not_find_idx) > 0:
+        text_output.loc[not_find_idx,text_output.columns] = Collection_method(test_df.loc[not_find_idx], 產品集合_不加空白版本 ,x_col)
+    
+    # 若還是無解則用bert
     not_find_idx = text_output.loc[text_output['預測產品'] == 'not find',:].index
     if len(not_find_idx) > 0:
         bert_predict = model_predict(nlp,test_df.loc[not_find_idx])
@@ -457,8 +469,6 @@ if button:
         return df
     text_output = predict_bank(df=text_output,x_col=銀行_col)
     #==================銀行預測部分==================================================================
-
-    
     # 計算正確與否
     correct = [ i==j for i,j in zip(text_output['集成預測代號'].values.tolist(),text_output['推薦公司事業部'].values.tolist())]
     text_output['正確與否'] = [ 'yes' if i == True else 'no' for i in correct]
