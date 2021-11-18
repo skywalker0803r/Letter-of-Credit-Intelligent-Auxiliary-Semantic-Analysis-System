@@ -213,7 +213,7 @@ df_by_ricky = df_by_ricky.rename(columns={'ITEMNM':'品名','DIVNM':'公司事�
 feedback = pd.read_excel(root+'寶典_feedback.xlsx',engine='openpyxl')[['公司代號','公司事業部門','品名']]
 
 #df = df1.append(df2).append(df3).append(df4).append(df5) # 合併所有寶典
-df = df5.append(feedback).append(df_by_ricky) # 合併官方寶典和我做的寶典和廠區回饋
+df = df5.append(df_by_ricky) # 合併官方寶典和我做的寶典和廠區回饋
 df_不加空白版本 = df.copy()
 df['品名'] = df['品名'].apply(lambda x:product_name_postprocess(x)) #品名後處理
 df_不加空白版本['品名'] = df_不加空白版本['品名'].apply(lambda x:str(x).replace('-',' ').strip()) #品名後處理
