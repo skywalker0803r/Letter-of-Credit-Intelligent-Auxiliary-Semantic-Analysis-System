@@ -125,7 +125,8 @@ def Collection_method(df,產品集合,x_col):
         products = []
         for p in 產品集合:
             if (str(p) in str(df.loc[i,x_col])) | (get_jaccard_sim(str(p),str(df.loc[i,x_col]))>=0.9): # 模糊比對
-                products.append(str(p)) # 加入候選清單
+                if p not in ['PE','MA','EA']:
+                    products.append(str(p)) # 加入候選清單
         if len(products) > 0: # 如果有找到產品 
             labels[i] = products # 複數個產品,之後配合公司去篩選出一個
             labels_max[i] = max(products,key=len) # 取長度最長的產品
