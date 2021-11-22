@@ -82,7 +82,7 @@ def levenshtein(seq1, seq2):
 def preprocess_45(x):
     x = str(x).upper() # 轉大寫字串
     x = re.sub('[\u4e00-\u9fa5]', '', x) # 去除中文
-    x = re.sub(r'[^\w\s]','',x) # 去除標點符號
+    x = re.sub(r'[^\w\s]',' ',x) # 去除標點符號
     x = x.replace('\n', '').replace('\r', '').replace('\t', '') # 換行符號去除
     str.strip(x) # 移除左右空白
     # 去除多重空白
