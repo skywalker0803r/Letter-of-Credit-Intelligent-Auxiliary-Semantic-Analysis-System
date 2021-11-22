@@ -13,6 +13,7 @@ from transformers import pipeline
 import re
 from IPython.display import HTML
 import warnings;warnings.simplefilter('ignore')
+# 0927到1105測試結果正確率:0.926923076923077錯誤筆數:76
 
 # set seed 
 def set_seed(seed = int):
