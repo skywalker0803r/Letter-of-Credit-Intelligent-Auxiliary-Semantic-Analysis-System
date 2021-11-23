@@ -82,7 +82,7 @@ def levenshtein(seq1, seq2):
 def preprocess_45(x):
     x = str(x).upper() # 轉大寫字串
     x = re.sub('[\u4e00-\u9fa5]', '', x) # 去除中文
-    x = re.sub(r'[^\w\s]',' ',x) # 去除標點符號
+    x = re.sub(r'[^\w\s]','',x) # 去除標點符號
     x = x.replace('\n', '').replace('\r', '').replace('\t', '') # 換行符號去除
     str.strip(x) # 移除左右空白
     # 去除多重空白
@@ -125,7 +125,7 @@ def Collection_method(df,產品集合,x_col):
         products = []
         for p in 產品集合:
             if (str(p) in str(df.loc[i,x_col])) | (get_jaccard_sim(str(p),str(df.loc[i,x_col]))>=0.9): # 模糊比對
-                if p not in ['PE','MA','EA']:
+                if p not in ['PE','MA','EA','GRADE']: #GRADE這個字眼拿掉好像比較好
                     products.append(str(p)) # 加入候選清單
         if len(products) > 0: # 如果有找到產品 
             labels[i] = products # 複數個產品,之後配合公司去篩選出一個
@@ -145,18 +145,27 @@ def add_space(x):
     else:
         return x
 
+# fix 7
 def bert_postprocess(x):
     x = str(x)
-    x = x.replace('QUANTITY','')
+    x = x.replace('QUANTITY',' QUANTITY')
+    x = x.replace('QUANTITIES',' QUANTITIES')
+    x = x.replace('QTY',' QTY')
     if 'PACKING' in x: #像這個 有辦法將 packing之後的都幹掉嗎
         x = x[:x.find('PACKING')+len('PACKING')]
     return x
 
 def product_name_postprocess(x):
     x = str(x)
-    x = x.replace('-',' ')
+    x = x.replace('-','')
     x = x.strip()
     x = add_space(x)
+    return x
+
+def product_name_postprocessV2(x):
+    x = str(x)
+    x = x.replace('-','')
+    x = x.strip()
     return x
 
 # 載入訓練好的模型(產品) 簡稱 nlp
@@ -197,9 +206,9 @@ st.write(test_df)
 
 # 讀取訓練資料(SPEC)
 train_df = pd.read_csv('./data/preprocess_for_SQUAD_產品.csv')[['string_X_train','Y_label','EXPNO']]
-train_df_不加空白版本 = train_df.copy()
+train_df_不加空白版本 = train_df.copy()#
 train_df['Y_label'] = train_df['Y_label'].apply(lambda x:product_name_postprocess(x))
-train_df_不加空白版本['Y_label'] = train_df_不加空白版本['Y_label'].apply(lambda x:str(x).replace('-',' ').strip()) #品名後處理
+train_df_不加空白版本['Y_label'] = train_df_不加空白版本['Y_label'].apply(lambda x:product_name_postprocessV2(x)) #品名後處理
 
 # 讀取台塑網提供之(寶典人工手動修正過刪除線問題)
 root = './data/寶典/寶典人工處理後/'
@@ -218,7 +227,7 @@ feedback = pd.read_excel(root+'寶典_feedback.xlsx',engine='openpyxl')[['公司
 df = df5.append(df_by_ricky) # 合併官方寶典和我做的寶典和廠區回饋
 df_不加空白版本 = df.copy()
 df['品名'] = df['品名'].apply(lambda x:product_name_postprocess(x)) #品名後處理
-df_不加空白版本['品名'] = df_不加空白版本['品名'].apply(lambda x:str(x).replace('-',' ').strip()) #品名後處理
+df_不加空白版本['品名'] = df_不加空白版本['品名'].apply(lambda x:product_name_postprocessV2(x)) #品名後處理
 
 # 讀取開狀人寶典,尾綴
 開狀人寶典 = pd.read_csv('./data/寶典/開狀人寶典.csv')
