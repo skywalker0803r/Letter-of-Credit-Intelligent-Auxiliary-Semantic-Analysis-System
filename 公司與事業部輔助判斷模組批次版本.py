@@ -218,7 +218,7 @@ df5 = pd.read_excel(root+'寶典.v6.20211020.xlsx',engine='openpyxl')[['CODIV','
 df5 = df5.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
 
 # 我做的寶典
-df_by_ricky = pd.read_excel(root+'寶典_by_ricky.xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
+df_by_ricky = pd.read_excel(root+'寶典.v6.20211128(陳思翰版本).xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
 df_by_ricky = df_by_ricky.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
 
 # 廠區回饋
@@ -436,7 +436,6 @@ if button:
 
             # 判斷第一碼做初步篩選,再取眾數
             for 產品預測代號 in 產品預測代號列表:
-                assert (len(產品預測代號) == 2) & (type(產品預測代號) == type('string'))
                 if 產品預測代號[0] != 公司預測代號[0]: #看產品代號第一碼跟公司預測代號第一碼有沒有一致
                     產品預測代號列表 = list( set(產品預測代號列表)-set([產品預測代號]))
             if len(產品預測代號列表) != 0: # 如果有找到產品
