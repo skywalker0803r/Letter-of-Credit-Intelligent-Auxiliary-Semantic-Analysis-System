@@ -14,7 +14,7 @@ from transformers import pipeline
 import re
 from IPython.display import HTML
 import warnings;warnings.simplefilter('ignore')
-# 0927到1105測試結果正確率:0.926923076923077錯誤筆數:76
+
 
 # set seed 
 def set_seed(seed = int):
@@ -218,7 +218,7 @@ train_df_不加空白版本['Y_label'] = train_df_不加空白版本['Y_label'].
 # 讀取台塑網提供之(寶典人工手動修正過刪除線問題)
 root = './data/寶典/寶典人工處理後/'
 
-df5 = pd.read_excel(root+'寶典.v6.20211128(陳思翰版本).xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
+df5 = pd.read_excel(root+'寶典.v6.20211020.xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
 df5 = df5.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
 
 # 我做的寶典
@@ -228,7 +228,6 @@ df_by_ricky = df_by_ricky.rename(columns={'ITEMNM':'品名','DIVNM':'公司事�
 # 廠區回饋
 feedback = pd.read_excel(root+'寶典_feedback.xlsx',engine='openpyxl')[['公司代號','公司事業部門','品名']]
 
-#df = df1.append(df2).append(df3).append(df4).append(df5) # 合併所有寶典
 df = df5.append(df_by_ricky) # 合併官方寶典和我做的寶典和廠區回饋
 df_不加空白版本 = df.copy()
 df['品名'] = df['品名'].apply(lambda x:product_name_postprocess(x)) #品名後處理
