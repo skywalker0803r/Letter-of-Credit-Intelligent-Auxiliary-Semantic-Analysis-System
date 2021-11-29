@@ -218,11 +218,11 @@ train_df_不加空白版本['Y_label'] = train_df_不加空白版本['Y_label'].
 # 讀取台塑網提供之(寶典人工手動修正過刪除線問題)
 root = './data/寶典/寶典人工處理後/'
 
-df5 = pd.read_excel(root+'寶典.v6.20211020.xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
+df5 = pd.read_excel(root+'寶典.v6.20211128(陳思翰版本).xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
 df5 = df5.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
 
 # 我做的寶典
-df_by_ricky = pd.read_excel(root+'寶典.v6.20211128(陳思翰版本).xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
+df_by_ricky = pd.read_excel(root+'寶典_by_ricky.xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
 df_by_ricky = df_by_ricky.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
 
 # 廠區回饋
