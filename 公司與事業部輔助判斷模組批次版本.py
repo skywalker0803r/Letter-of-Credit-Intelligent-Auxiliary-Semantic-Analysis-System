@@ -1,4 +1,5 @@
 import streamlit as st
+import itertools
 import pandas as pd
 import numpy as np
 from scipy import stats
@@ -125,8 +126,7 @@ def Collection_method(df,產品集合,x_col):
         products = []
         for p in 產品集合:
             if (str(p) in str(df.loc[i,x_col])) | (get_jaccard_sim(str(p),str(df.loc[i,x_col]))>=0.9): # 模糊比對
-                if p not in ['PE','MA','EA','GRADE']: #GRADE這個字眼拿掉好像比較好
-                    if p not in [' PE ',' MA ',' EA ',' GRADE ']:
+                if p not in ['PE','MA','EA','GRADE','INA','PACK','PP']: #GRADE這個字眼拿掉好像比較好
                         products.append(str(p)) # 加入候選清單
         if len(products) > 0: # 如果有找到產品 
             labels[i] = products # 複數個產品,之後配合公司去篩選出一個
@@ -159,6 +159,8 @@ def bert_postprocess(x):
 def product_name_postprocess(x):
     x = str(x)
     x = x.replace('-','')
+    x = x.replace('.','')
+    x = x.replace(',','')
     x = x.strip()
     x = add_space(x)
     return x
@@ -166,6 +168,8 @@ def product_name_postprocess(x):
 def product_name_postprocessV2(x):
     x = str(x)
     x = x.replace('-','')
+    x = x.replace('.','')
+    x = x.replace(',','')
     x = x.strip()
     return x
 
@@ -243,16 +247,20 @@ assert len(公司寶典) == 28 #公司名寶典不要擴充
 產品集合_不加空白版本 = set(df_不加空白版本['品名'].values.tolist() + train_df_不加空白版本['Y_label'].values.tolist())
 
 # 製作對應表(寶典對部門和代號)
-品名2部門寶典 = dict(zip(df['品名'],df['公司事業部門']))
-品名2代號寶典 = dict(zip(df['品名'],df['公司代號']))
+def 品名2部門函數(品名):
+    return df.loc[df['品名']==品名,'公司事業部門'].values.tolist()
+def 品名2代號函數(品名):
+    return df.loc[df['品名']==品名,'公司代號'].values.tolist()
 
 # 製作對應表(訓練資料對代號)
-品名2代號訓練資料 = dict(zip(train_df.dropna(subset=['EXPNO'],axis=0)['Y_label'],train_df.dropna(subset=['EXPNO'],axis=0)['EXPNO']))
+def 品名2代號訓練資料函數(品名):
+    a = train_df.dropna(subset=['EXPNO'],axis=0)
+    return a.loc[a['Y_label']==品名,'EXPNO'].values.tolist()
 
 # 根據品名從訓練資料搜索EXPNO(代號),然後把EXPNO(代號)代入寶典裡找公司部門
-def find_department(x):
+def find_department(品名):
     try:
-        return df.loc[df['公司代號']==train_df.loc[train_df.Y_label==x,'EXPNO'].dropna().value_counts().sort_values().index[-1],'公司事業部門'].value_counts().sort_values().index[-1]
+        return df.loc[df['公司代號']==train_df.loc[train_df.Y_label==品名,'EXPNO']].values.tolist()
     except:
         return 'not from_pretrained'
 
@@ -284,35 +292,12 @@ if button:
         text_output.loc[not_find_idx,'預測產品(取長度最長)'] = bert_predict
         text_output.loc[not_find_idx,'預測產品使用方式'] = 'bert'
     
-    # 對應部門別和代號,就算匹配不到一模一樣的,取最相似的,少了品名2部門訓練資料 使用find_department函數取代之
-    def map2部門(x):
-        if x in 品名2部門寶典.keys(): #先從寶典找
-            return str(品名2部門寶典[x])
-        elif x in train_df['Y_label'].values.tolist(): #找不到從訓練資料找
-            return str(find_department(x))
-        else:# 模糊比對
-            jacs = {}
-            for i in 品名2部門寶典.keys():
-                jacs[i] = get_jaccard_sim(x,i)
-            x = max(jacs,key=jacs.get) # 模糊比對
-            return map2部門(x)
-    
-    def map2代號(x):
-        if  x in 品名2代號寶典.keys(): #先從寶典找
-            return str(品名2代號寶典[x])
-        elif x in 品名2代號訓練資料.keys(): #找不到從訓練資料找
-            return str(品名2代號訓練資料[x])
-        else:# 模糊比對
-            jacs = {}
-            for i in 品名2代號寶典.keys():
-                jacs[i] = get_jaccard_sim(x,i)
-            x = max(jacs,key=jacs.get) # 模糊比對
-            return map2代號(x)
-    
     # 利用產品名去對應部門跟代號
     text_output['預測產品'] = text_output['預測產品'].apply(remove_subsets_lists)#對出來的產品名若為其他產品名的子集則剔除
-    text_output['根據產品預測部門'] = [[map2部門(i) for i in lst] for lst in text_output['預測產品'].values]
-    text_output['根據產品預測代號'] = [[map2代號(i) for i in lst] for lst in text_output['預測產品'].values]
+    def flatten(lst):
+        return list(itertools.chain(*lst))
+    text_output['根據產品預測部門'] = [flatten([品名2部門函數(i) for i in lst]) for lst in text_output['預測產品'].values]
+    text_output['根據產品預測代號'] = [flatten([品名2代號函數(i) for i in lst]) for lst in text_output['預測產品'].values]
     text_output = pd.concat([test_df,text_output.iloc[:,:]],axis=1)
     col_45A = text_output['45A'].values.tolist()
     text_output = text_output.drop(['45A'],axis=1)
@@ -431,15 +416,21 @@ if button:
                 continue
 
             if 公司預測代號 == 'not find': # 直接取眾數
-                text_output.loc[idx,'集成預測代號'] = stats.mode(產品預測代號列表)[0][0]
-                continue
+                try:
+                    text_output.loc[idx,'集成預測代號'] = stats.mode(產品預測代號列表)[0][0]
+                    continue
+                except:
+                    pass
 
             # 判斷第一碼做初步篩選,再取眾數
             for 產品預測代號 in 產品預測代號列表:
-                if 產品預測代號[0] != 公司預測代號[0]: #看產品代號第一碼跟公司預測代號第一碼有沒有一致
+                if str(產品預測代號)[0] != str(公司預測代號)[0]: #看產品代號第一碼跟公司預測代號第一碼有沒有一致
                     產品預測代號列表 = list( set(產品預測代號列表)-set([產品預測代號]))
             if len(產品預測代號列表) != 0: # 如果有找到產品
-                text_output.loc[idx,'集成預測代號'] = stats.mode(產品預測代號列表)[0][0] # 從候選清單取眾數
+                try:
+                    text_output.loc[idx,'集成預測代號'] = stats.mode(產品預測代號列表)[0][0] # 從候選清單取眾數
+                except:
+                    text_output.loc[idx,'集成預測代號'] = np.random.choice(產品預測代號列表)
             else: # 否則用公司代號assign
                 text_output.loc[idx,'集成預測代號'] = 公司預測代號
         except Exception as e: #異常處理
@@ -511,15 +502,17 @@ if button:
             text_output.loc[i,'EXPNO'] = str(EXPNO對應表.loc[max_jac_idx,'EXPNO'])
     #==================================================================================================
 
+    print(text_output['根據產品預測代號'].dtype)
+
     # 展示結果
     if debug_mode == True:
         st.write('==================================')
-        st.write(text_output.loc[text_output['錯誤原因']!='無錯誤',['受益人','預測產品','預測產品(取長度最長)',
-        '推薦公司事業部','根據產品預測代號','利用公司名稱預測公司代號','DIVSION','DIVSION預測代號','集成預測代號']])
+        #st.dataframe(text_output.loc[text_output['錯誤原因']!='無錯誤',['受益人','預測產品','預測產品(取長度最長)',
+        #'推薦公司事業部','根據產品預測代號','利用公司名稱預測公司代號','DIVSION','DIVSION預測代號','集成預測代號']])
         st.write('==================================')
     else:
         st.write('==================================')
-        st.write(text_output)
+        #st.dataframe(text_output)
         st.write('==================================')
 
 
