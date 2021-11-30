@@ -256,10 +256,10 @@ assert len(公司寶典) == 28 #公司名寶典不要擴充
 品名2代號寶典 = dict(zip(df['品名'],df['公司代號']))
 品名2代號訓練資料 = dict(zip(train_df.dropna(subset=['EXPNO'],axis=0)['Y_label'],train_df.dropna(subset=['EXPNO'],axis=0)['EXPNO']))
 def 品名2部門函數(品名):
-    answer = df.loc[df['品名']==品名,'公司事業部門'].values.tolist()
-    return [str(i) for i in answer]
+    answer = df.loc[df['品名']==品名,'公司事業部門'].unique().tolist()
+    return [str(i) for i in answer] # 轉字串
 def 品名2代號函數(品名):
-    answer = df.loc[df['品名']==品名,'公司代號'].values.tolist()
+    answer = df.loc[df['品名']==品名,'公司代號'].unique().tolist()
     answer = [str(i) for i in answer]
     answer = list(filter(lambda a: len(a) == 2, answer)) #保留兩碼的
     return answer
@@ -267,8 +267,8 @@ def 品名2代號函數(品名):
 # 製作對應表(訓練資料對代號)
 def 品名2代號訓練資料函數(品名):
     a = train_df.dropna(subset=['EXPNO'],axis=0)
-    answer = a.loc[a['Y_label']==品名,'EXPNO'].values.tolist()
-    answer = [str(i) for i in answer]
+    answer = a.loc[a['Y_label']==品名,'EXPNO'].unique().tolist()
+    answer = [str(i) for i in answer] # 轉字串
     answer = list(filter(lambda a: len(a) == 2, answer)) #保留兩碼的
     return answer
 
@@ -276,7 +276,7 @@ def 品名2代號訓練資料函數(品名):
 def find_department(品名):
     try:
         answer = df.loc[df['公司代號']==train_df.loc[train_df.Y_label==品名,'EXPNO']].values.tolist()
-        answer = [str(i) for i in answer]
+        answer = [str(i) for i in answer] # 轉字串
         answer = list(filter(lambda a: len(a) == 2, answer)) #保留兩碼的
         return answer
     except:
