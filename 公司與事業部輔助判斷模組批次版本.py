@@ -1,7 +1,8 @@
 import streamlit as st
-import itertools
 import pandas as pd
 import numpy as np
+import itertools
+from collections import Counter
 from scipy import stats
 import joblib
 import torch
@@ -14,7 +15,7 @@ from transformers import pipeline
 import re
 from IPython.display import HTML
 import warnings;warnings.simplefilter('ignore')
-
+#正確率:0.7794707297514034
 
 # set seed 
 def set_seed(seed = int):
@@ -118,6 +119,7 @@ def model_predict(nlp,df,question='What is the product name?',start_from0=False,
 
 # 寶典比對法
 def Collection_method(df,產品集合,x_col):
+    Unrecognized = ['PE','MA','EA','GRADE','INA','PACK','PP']
     labels = {}
     labels_max = {}
     my_bar = st.progress(0)
@@ -125,8 +127,8 @@ def Collection_method(df,產品集合,x_col):
         my_bar.progress(percent_complete/len(df))
         products = []
         for p in 產品集合:
-            if (str(p) in str(df.loc[i,x_col])) | (get_jaccard_sim(str(p),str(df.loc[i,x_col]))>=0.9): # 模糊比對
-                if p not in ['PE','MA','EA','GRADE','INA','PACK','PP']: #GRADE這個字眼拿掉好像比較好
+            if (str(p) in str(df.loc[i,x_col])) | (get_jaccard_sim(str(p),str(df.loc[i,x_col]))>=0.9):#模糊比對
+                if p not in Unrecognized:
                         products.append(str(p)) # 加入候選清單
         if len(products) > 0: # 如果有找到產品 
             labels[i] = products # 複數個產品,之後配合公司去篩選出一個
@@ -218,7 +220,11 @@ train_df_不加空白版本['Y_label'] = train_df_不加空白版本['Y_label'].
 # 讀取台塑網提供之(寶典人工手動修正過刪除線問題)
 root = './data/寶典/寶典人工處理後/'
 
-df5 = pd.read_excel(root+'寶典.v6.20211020.xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
+#正確率:0.6193029490616622(寶典.v6.20211020.xlsx)
+#正確率:0.6273458445040214(寶典.v6.20211128(陳思翰版本).xlsx)
+#正確率:0.6863270777479893(寶典.v7.20211111.xlsx)
+#取寶典.v7.20211111.xlsx
+df5 = pd.read_excel(root+'寶典.v7.20211111.xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
 df5 = df5.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
 
 # 我做的寶典
@@ -228,7 +234,7 @@ df_by_ricky = df_by_ricky.rename(columns={'ITEMNM':'品名','DIVNM':'公司事�
 # 廠區回饋
 feedback = pd.read_excel(root+'寶典_feedback.xlsx',engine='openpyxl')[['公司代號','公司事業部門','品名']]
 
-df = df5.append(df_by_ricky) # 合併官方寶典和我做的寶典和廠區回饋
+df = df5.append(feedback).append(df_by_ricky) #使用官方寶典(寶典.v7.20211111.xlsx)跟回饋(feedback)
 df_不加空白版本 = df.copy()
 df['品名'] = df['品名'].apply(lambda x:product_name_postprocess(x)) #品名後處理
 df_不加空白版本['品名'] = df_不加空白版本['品名'].apply(lambda x:product_name_postprocessV2(x)) #品名後處理
@@ -246,22 +252,35 @@ assert len(公司寶典) == 28 #公司名寶典不要擴充
 產品集合_不加空白版本 = set(df_不加空白版本['品名'].values.tolist() + train_df_不加空白版本['Y_label'].values.tolist())
 
 # 製作對應表(寶典對部門和代號)
+品名2部門寶典 = dict(zip(df['品名'],df['公司事業部門']))
+品名2代號寶典 = dict(zip(df['品名'],df['公司代號']))
+品名2代號訓練資料 = dict(zip(train_df.dropna(subset=['EXPNO'],axis=0)['Y_label'],train_df.dropna(subset=['EXPNO'],axis=0)['EXPNO']))
 def 品名2部門函數(品名):
-    return df.loc[df['品名']==品名,'公司事業部門'].values.tolist()
+    answer = df.loc[df['品名']==品名,'公司事業部門'].values.tolist()
+    return [str(i) for i in answer]
 def 品名2代號函數(品名):
-    return df.loc[df['品名']==品名,'公司代號'].values.tolist()
+    answer = df.loc[df['品名']==品名,'公司代號'].values.tolist()
+    answer = [str(i) for i in answer]
+    answer = list(filter(lambda a: len(a) == 2, answer)) #保留兩碼的
+    return answer
 
 # 製作對應表(訓練資料對代號)
 def 品名2代號訓練資料函數(品名):
     a = train_df.dropna(subset=['EXPNO'],axis=0)
-    return a.loc[a['Y_label']==品名,'EXPNO'].values.tolist()
+    answer = a.loc[a['Y_label']==品名,'EXPNO'].values.tolist()
+    answer = [str(i) for i in answer]
+    answer = list(filter(lambda a: len(a) == 2, answer)) #保留兩碼的
+    return answer
 
 # 根據品名從訓練資料搜索EXPNO(代號),然後把EXPNO(代號)代入寶典裡找公司部門
 def find_department(品名):
     try:
-        return df.loc[df['公司代號']==train_df.loc[train_df.Y_label==品名,'EXPNO']].values.tolist()
+        answer = df.loc[df['公司代號']==train_df.loc[train_df.Y_label==品名,'EXPNO']].values.tolist()
+        answer = [str(i) for i in answer]
+        answer = list(filter(lambda a: len(a) == 2, answer)) #保留兩碼的
+        return answer
     except:
-        return 'not from_pretrained'
+        return ['NA']
 
 # 讀取銀行列表
 銀行列表 = np.load('./data/寶典/銀行寶典.npy')
@@ -291,12 +310,37 @@ if button:
         text_output.loc[not_find_idx,'預測產品(取長度最長)'] = bert_predict
         text_output.loc[not_find_idx,'預測產品使用方式'] = 'bert'
     
+    # 對應部門別和代號,就算匹配不到一模一樣的,取最相似的,少了品名2部門訓練資料 使用find_department函數取代之
+    def map2部門(x):
+        if x in 品名2部門寶典.keys(): #先從寶典找
+            return 品名2部門函數(x)
+        elif x in train_df['Y_label'].values.tolist(): #找不到從訓練資料找
+            return find_department(x)
+        else:# 模糊比對
+            levs = {}
+            for i in 品名2部門寶典.keys():
+                levs[i] = levenshtein(x,i)
+            x = min(levs,key=levs.get) # 模糊比對
+            return map2部門(x)
+    
+    def map2代號(x):
+        if  x in 品名2代號寶典.keys(): #先從寶典找
+            return 品名2代號函數(x)
+        elif x in 品名2代號訓練資料.keys(): #找不到從訓練資料找
+            return 品名2代號訓練資料函數(x)
+        else:# 模糊比對
+            levs = {}
+            for i in 品名2代號寶典.keys():
+                levs[i] = levenshtein(x,i)
+            x = min(levs,key=levs.get) # 模糊比對
+            return map2代號(x)
+    
     # 利用產品名去對應部門跟代號
     text_output['預測產品'] = text_output['預測產品'].apply(remove_subsets_lists)#對出來的產品名若為其他產品名的子集則剔除
     def flatten(lst):
         return list(itertools.chain(*lst))
-    text_output['根據產品預測部門'] = [flatten([品名2部門函數(i) for i in lst]) for lst in text_output['預測產品'].values]
-    text_output['根據產品預測代號'] = [flatten([品名2代號函數(i) for i in lst]) for lst in text_output['預測產品'].values]
+    text_output['根據產品預測部門'] = [flatten([map2部門(i) for i in lst]) for lst in text_output['預測產品'].values]
+    text_output['根據產品預測代號'] = [flatten([map2代號(i) for i in lst]) for lst in text_output['預測產品'].values]
     text_output = pd.concat([test_df,text_output.iloc[:,:]],axis=1)
     col_45A = text_output['45A'].values.tolist()
     text_output = text_output.drop(['45A'],axis=1)
@@ -410,26 +454,20 @@ if button:
         DIVSION預測代號 = str(text_output.loc[idx,'DIVSION預測代號'])
         DIVSION = str(text_output.loc[idx,'DIVSION'])
         try:
-            if 公司預測代號.isalpha(): # 例如"RS"
+            if 公司預測代號.isalpha(): # 例如"RS" 直接continue
                 text_output.loc[idx,'集成預測代號'] = 公司預測代號
                 continue
 
-            if 公司預測代號 == 'not find': # 直接取眾數
-                try:
-                    text_output.loc[idx,'集成預測代號'] = stats.mode(產品預測代號列表)[0][0]
-                    continue
-                except:
-                    pass
+            if 公司預測代號 == 'not find': # 公司對不到所以直接取眾數continue
+                text_output.loc[idx,'集成預測代號'] = Counter(產品預測代號列表).most_common(1)[0][0] #從候選清單取眾數
+                continue
 
-            # 判斷第一碼做初步篩選,再取眾數
+            # 產品跟公司都有對到 判斷第一碼做初步篩選,再取眾數
             for 產品預測代號 in 產品預測代號列表:
-                if str(產品預測代號)[0] != str(公司預測代號)[0]: #看產品代號第一碼跟公司預測代號第一碼有沒有一致
-                    產品預測代號列表 = list( set(產品預測代號列表)-set([產品預測代號]))
-            if len(產品預測代號列表) != 0: # 如果有找到產品
-                try:
-                    text_output.loc[idx,'集成預測代號'] = stats.mode(產品預測代號列表)[0][0] # 從候選清單取眾數
-                except:
-                    text_output.loc[idx,'集成預測代號'] = np.random.choice(產品預測代號列表)
+                if str(產品預測代號)[0] != str(公司預測代號)[0]: # 看產品代號第一碼跟公司預測代號第一碼有沒有一致
+                    產品預測代號列表 = list( set(產品預測代號列表) - set([產品預測代號])) # 不一致則去除
+            if len(產品預測代號列表) != 0: # 如果產品預測代號列表元素數量不等於0
+                text_output.loc[idx,'集成預測代號'] = Counter(產品預測代號列表).most_common(1)[0][0] #從候選清單取眾數
             else: # 否則用公司代號assign
                 text_output.loc[idx,'集成預測代號'] = 公司預測代號
         except Exception as e: #異常處理
@@ -501,17 +539,15 @@ if button:
             text_output.loc[i,'EXPNO'] = str(EXPNO對應表.loc[max_jac_idx,'EXPNO'])
     #==================================================================================================
 
-    print(text_output['根據產品預測代號'].dtype)
-
     # 展示結果
     if debug_mode == True:
         st.write('==================================')
-        #st.dataframe(text_output.loc[text_output['錯誤原因']!='無錯誤',['受益人','預測產品','預測產品(取長度最長)',
+        #st.write(text_output.loc[text_output['錯誤原因']!='無錯誤',['受益人','預測產品','預測產品(取長度最長)',
         #'推薦公司事業部','根據產品預測代號','利用公司名稱預測公司代號','DIVSION','DIVSION預測代號','集成預測代號']])
         st.write('==================================')
     else:
         st.write('==================================')
-        #st.dataframe(text_output)
+        #st.write(text_output)
         st.write('==================================')
 
 
@@ -611,7 +647,11 @@ if button:
             else:
                 correct.append('no')
         result = pd.DataFrame({'correct':correct})
-        return result['correct'].value_counts()['yes']/len(result)
+        try:
+            return result['correct'].value_counts()['yes']/len(result)
+        except:
+            return 0
+    
     st.write(f'正確率:{get_acc(text_output)}')
     錯誤筆數 = len(text_output.loc[text_output['正確與否']=='no',:])
     st.write(f'錯誤筆數:{錯誤筆數}')
