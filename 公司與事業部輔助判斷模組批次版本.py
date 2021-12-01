@@ -117,9 +117,9 @@ def model_predict(nlp,df,question='What is the product name?',start_from0=False,
     table[y_col] = table[y_col].apply(lambda x:[bert_postprocess(x)])
     return [ i[0] for i in table[y_col].values.tolist()] # list of string
 
-# 寶典比對法
+# 寶典比對法.
 def Collection_method(df,產品集合,x_col):
-    Unrecognized = ['PE','MA','EA','GRADE','INA','PACK','PP']
+    Unrecognized = ['PE','MA','EA','GRADE','INA','PACK','PP','PA','EVA'] # 這些產品我不認
     labels = {}
     labels_max = {}
     my_bar = st.progress(0)
@@ -127,7 +127,7 @@ def Collection_method(df,產品集合,x_col):
         my_bar.progress(percent_complete/len(df))
         products = []
         for p in 產品集合:
-            if (str(p) in str(df.loc[i,x_col])) | (levenshtein(str(p),str(df.loc[i,x_col]))<=1):#模糊比對
+            if (str(p) in str(df.loc[i,x_col])):
                 if p not in Unrecognized:
                         products.append(str(p)) # 加入候選清單
         if len(products) > 0: # 如果有找到產品 
@@ -230,7 +230,8 @@ df_by_ricky = df_by_ricky.rename(columns={'ITEMNM':'品名','DIVNM':'公司事�
 # 專員回饋
 feedback = pd.read_excel(root+'寶典_feedback.xlsx',engine='openpyxl')[['公司代號','公司事業部門','品名']]
 # 組合起來
-df = df5.append(feedback).append(df_by_ricky)
+# 正確率:0.9021651964715317 不加df_by_ricky
+df = df5.append(feedback).append(df_by_ricky) # df5.append(feedback).append(df_by_ricky)
 df_不加空白版本 = df.copy()
 #品名後處理
 df['品名'] = df['品名'].apply(lambda x:product_name_postprocess(x)) 
@@ -289,6 +290,7 @@ if button:
     debug_mode = False
     
     # 先用規則
+    st.write('正在預測產品')
     text_output = Collection_method(test_df, 產品集合 ,x_col)
     
     # 若規則無解則改一下產品集合(不加空白)
@@ -441,7 +443,9 @@ if button:
         df['利用公司名稱預測公司代號'] = [公司映射代號(公司英文名稱) for 公司英文名稱 in df['受益人'].values]
         return df
     
+    st.write('正在預測company')
     text_output = predict_company(df=text_output,x_col=x_col3)
+    st.write('正在預測divisions')
     text_output = predict_divisions(df=text_output,x_col=x_col3)
 
     text_output['集成預測代號'] = 'not find'
@@ -506,6 +510,8 @@ if button:
                 start_from0 = False)
             df.loc[not_find_idx,'開狀銀行'] = bert_predict
         return df
+
+    st.write('正在預測銀行')    
     text_output = predict_bank(df=text_output,x_col=銀行_col)
     #==================銀行預測部分==================================================================
     # 計算正確與否
