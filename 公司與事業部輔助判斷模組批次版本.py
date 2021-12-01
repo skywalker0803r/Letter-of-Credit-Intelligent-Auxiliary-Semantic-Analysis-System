@@ -15,7 +15,6 @@ from transformers import pipeline
 import re
 from IPython.display import HTML
 import warnings;warnings.simplefilter('ignore')
-#正確率:0.7794707297514034
 
 # set seed 
 def set_seed(seed = int):
@@ -34,18 +33,14 @@ def set_seed(seed = int):
 seed = set_seed(42)
 
 # rule對出來的產品名若為其他產品名的子集則剔除
-def remove_subsets_lists(l):
-    max_len_string = max(l) #最長字串
-    l2 = l[:]
-    for m in l:
-        for n in l:
-            if set(m).issubset(set(n)) and m != n:
-                l2.remove(m)
-                break
-    # 確保不為空list
-    if len(l2) == 0:
-        l2 = [max_len_string]
-    return l2
+# 這段還蠻精簡的
+def substringSieve(string_list):
+    string_list.sort(key=lambda s: len(s), reverse=True)
+    out = []
+    for s in string_list:
+        if not any([s in o for o in out]):
+            out.append(s)
+    return out
 
 # jaccard文本相似度
 def get_jaccard_sim(str1, str2):
@@ -119,7 +114,7 @@ def model_predict(nlp,df,question='What is the product name?',start_from0=False,
 
 # 寶典比對法.
 def Collection_method(df,產品集合,x_col):
-    Unrecognized = ['PE','MA','EA','GRADE','INA','PACK','PP','PA','EVA'] # 這些產品我不認
+    Unrecognized = ['PE','MA','EA','GRADE','INA','PACK','PP','PA'] # 這些產品一概不認
     labels = {}
     labels_max = {}
     my_bar = st.progress(0)
@@ -128,7 +123,7 @@ def Collection_method(df,產品集合,x_col):
         products = []
         for p in 產品集合:
             if (str(p) in str(df.loc[i,x_col])):
-                if p not in Unrecognized:
+                if p not in Unrecognized: # 這些產品一概不認
                         products.append(str(p)) # 加入候選清單
         if len(products) > 0: # 如果有找到產品 
             labels[i] = products # 複數個產品,之後配合公司去篩選出一個
@@ -230,7 +225,6 @@ df_by_ricky = df_by_ricky.rename(columns={'ITEMNM':'品名','DIVNM':'公司事�
 # 專員回饋
 feedback = pd.read_excel(root+'寶典_feedback.xlsx',engine='openpyxl')[['公司代號','公司事業部門','品名']]
 # 組合起來
-# 正確率:0.9021651964715317 不加df_by_ricky
 df = df5.append(feedback).append(df_by_ricky) # df5.append(feedback).append(df_by_ricky)
 df_不加空白版本 = df.copy()
 #品名後處理
@@ -332,7 +326,7 @@ if button:
             return map2代號(x)
     
     # 利用產品名去對應部門跟代號
-    text_output['預測產品'] = text_output['預測產品'].apply(remove_subsets_lists)#對出來的產品名若為其他產品名的子集則剔除
+    text_output['預測產品'] = text_output['預測產品'].apply(substringSieve)#對出來的產品名若為其他產品名的子集則剔除
     
     # 把list做一維展開
     def flatten(lst):
