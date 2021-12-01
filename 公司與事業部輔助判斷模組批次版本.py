@@ -215,7 +215,7 @@ st.write(test_df)
 # 讀取訓練資料(SPEC)
 train_df = pd.read_csv('./data/preprocess_for_SQUAD_產品.csv')[['string_X_train','Y_label','EXPNO']]
 train_df_不加空白版本 = train_df.copy()
-#品名後處理
+# 品名後處理
 train_df['Y_label'] = train_df['Y_label'].apply(lambda x:product_name_postprocess(x))
 train_df_不加空白版本['Y_label'] = train_df_不加空白版本['Y_label'].apply(lambda x:product_name_postprocessV2(x)) 
 
