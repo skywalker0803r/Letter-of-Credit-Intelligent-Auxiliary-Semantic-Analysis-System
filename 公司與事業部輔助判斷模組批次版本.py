@@ -85,7 +85,7 @@ def preprocess_45(x):
     x = str(x).upper() # 轉大寫字串
     x = re.sub('[\u4e00-\u9fa5]', '', x) # 去除中文
     x = re.sub(r'[^\w\s]','',x) # 去除標點符號
-    x = x.replace('\n', '').replace('\r', '').replace('\t', '') # 換行符號去除
+    x = x.replace('\n', '').replace('\r', '').replace('\t', '') # 去除換行符號
     str.strip(x) # 移除左右空白
     # 去除多重空白
     x = x.replace('   ', ' ')
@@ -127,7 +127,7 @@ def Collection_method(df,產品集合,x_col):
         my_bar.progress(percent_complete/len(df))
         products = []
         for p in 產品集合:
-            if (str(p) in str(df.loc[i,x_col])) | (get_jaccard_sim(str(p),str(df.loc[i,x_col]))>=0.9):#模糊比對
+            if (str(p) in str(df.loc[i,x_col])) | (levenshtein(str(p),str(df.loc[i,x_col]))<=1):#模糊比對
                 if p not in Unrecognized:
                         products.append(str(p)) # 加入候選清單
         if len(products) > 0: # 如果有找到產品 
@@ -143,12 +143,12 @@ def Collection_method(df,產品集合,x_col):
     return predict
 
 def add_space(x):
-    if (' ' not in x)&(len(x)<=5):
+    if (' ' not in x)&(len(x)<=3): #字串長度小於3的單詞前後加空白
         return ' ' + x + ' '
     else:
         return x
 
-# fix 7
+# 把一些bert尾綴幹掉
 def bert_postprocess(x):
     x = str(x)
     x = x.replace('QUANTITY',' QUANTITY')
@@ -158,6 +158,7 @@ def bert_postprocess(x):
         x = x[:x.find('PACKING')+len('PACKING')]
     return x
 
+# 產品後處理(有加空白)
 def product_name_postprocess(x):
     x = str(x)
     x = x.replace('-','')
@@ -167,6 +168,7 @@ def product_name_postprocess(x):
     x = add_space(x)
     return x
 
+# 產品後處理(沒加空白)
 def product_name_postprocessV2(x):
     x = str(x)
     x = x.replace('-','')
@@ -175,8 +177,7 @@ def product_name_postprocessV2(x):
     x = x.strip()
     return x
 
-# 載入訓練好的模型(產品) 簡稱 nlp
-# 載入訓練好的模型(開狀人) 簡稱 nlp2
+# 載入訓練好的模型
 def load_nlp(path,model,tokenizer):
     model.load_state_dict(torch.load(path))
     model.eval()
@@ -213,31 +214,27 @@ st.write(test_df)
 
 # 讀取訓練資料(SPEC)
 train_df = pd.read_csv('./data/preprocess_for_SQUAD_產品.csv')[['string_X_train','Y_label','EXPNO']]
-train_df_不加空白版本 = train_df.copy()#
+train_df_不加空白版本 = train_df.copy()
+#品名後處理
 train_df['Y_label'] = train_df['Y_label'].apply(lambda x:product_name_postprocess(x))
-train_df_不加空白版本['Y_label'] = train_df_不加空白版本['Y_label'].apply(lambda x:product_name_postprocessV2(x)) #品名後處理
+train_df_不加空白版本['Y_label'] = train_df_不加空白版本['Y_label'].apply(lambda x:product_name_postprocessV2(x)) 
 
-# 讀取台塑網提供之(寶典人工手動修正過刪除線問題)
+# 讀取台塑網提供之寶典
 root = './data/寶典/寶典人工處理後/'
-
-#正確率:0.6193029490616622(寶典.v6.20211020.xlsx)
-#正確率:0.6273458445040214(寶典.v6.20211128(陳思翰版本).xlsx)
-#正確率:0.6863270777479893(寶典.v7.20211111.xlsx)
-#取寶典.v7.20211111.xlsx
+# 官方寶典
 df5 = pd.read_excel(root+'寶典.v7.20211111.xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
 df5 = df5.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
-
-# 我做的寶典
+# ricky做的寶典
 df_by_ricky = pd.read_excel(root+'寶典_by_ricky.xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
 df_by_ricky = df_by_ricky.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
-
-# 廠區回饋
+# 專員回饋
 feedback = pd.read_excel(root+'寶典_feedback.xlsx',engine='openpyxl')[['公司代號','公司事業部門','品名']]
-
-df = df5.append(feedback).append(df_by_ricky) #使用官方寶典(寶典.v7.20211111.xlsx)跟回饋(feedback)
+# 組合起來
+df = df5.append(feedback).append(df_by_ricky)
 df_不加空白版本 = df.copy()
-df['品名'] = df['品名'].apply(lambda x:product_name_postprocess(x)) #品名後處理
-df_不加空白版本['品名'] = df_不加空白版本['品名'].apply(lambda x:product_name_postprocessV2(x)) #品名後處理
+#品名後處理
+df['品名'] = df['品名'].apply(lambda x:product_name_postprocess(x)) 
+df_不加空白版本['品名'] = df_不加空白版本['品名'].apply(lambda x:product_name_postprocessV2(x))
 
 # 讀取開狀人寶典,尾綴
 開狀人寶典 = pd.read_csv('./data/寶典/開狀人寶典.csv')
@@ -245,7 +242,6 @@ df_不加空白版本['品名'] = df_不加空白版本['品名'].apply(lambda x
 
 # 讀取公司寶典,尾綴
 公司寶典 = pd.read_csv('./data/寶典/公司寶典加尾綴.csv')
-assert len(公司寶典) == 28 #公司名寶典不要擴充
 
 # 製作產品集合(寶典+SPEC)
 產品集合 = set(df['品名'].values.tolist() + train_df['Y_label'].values.tolist())
@@ -255,24 +251,22 @@ assert len(公司寶典) == 28 #公司名寶典不要擴充
 品名2部門寶典 = dict(zip(df['品名'],df['公司事業部門']))
 品名2代號寶典 = dict(zip(df['品名'],df['公司代號']))
 品名2代號訓練資料 = dict(zip(train_df.dropna(subset=['EXPNO'],axis=0)['Y_label'],train_df.dropna(subset=['EXPNO'],axis=0)['EXPNO']))
+
+# 製作映射函數
 def 品名2部門函數(品名):
     answer = df.loc[df['品名']==品名,'公司事業部門'].unique().tolist()
     return [str(i) for i in answer] # 轉字串
 def 品名2代號函數(品名):
     answer = df.loc[df['品名']==品名,'公司代號'].unique().tolist()
-    answer = [str(i) for i in answer]
+    answer = [str(i) for i in answer] # 轉字串
     answer = list(filter(lambda a: len(a) == 2, answer)) #保留兩碼的
     return answer
-
-# 製作對應表(訓練資料對代號)
 def 品名2代號訓練資料函數(品名):
     a = train_df.dropna(subset=['EXPNO'],axis=0)
     answer = a.loc[a['Y_label']==品名,'EXPNO'].unique().tolist()
     answer = [str(i) for i in answer] # 轉字串
     answer = list(filter(lambda a: len(a) == 2, answer)) #保留兩碼的
     return answer
-
-# 根據品名從訓練資料搜索EXPNO(代號),然後把EXPNO(代號)代入寶典裡找公司部門
 def find_department(品名):
     try:
         answer = df.loc[df['公司代號']==train_df.loc[train_df.Y_label==品名,'EXPNO']].values.tolist()
@@ -282,7 +276,7 @@ def find_department(品名):
     except:
         return ['NA']
 
-# 讀取銀行列表
+# 讀取銀行寶典
 銀行列表 = np.load('./data/寶典/銀行寶典.npy')
 
 # 主UI設計
@@ -320,7 +314,7 @@ if button:
             levs = {}
             for i in 品名2部門寶典.keys():
                 levs[i] = levenshtein(x,i)
-            x = min(levs,key=levs.get) # 模糊比對
+            x = min(levs,key=levs.get)
             return map2部門(x)
     
     def map2代號(x):
@@ -332,13 +326,16 @@ if button:
             levs = {}
             for i in 品名2代號寶典.keys():
                 levs[i] = levenshtein(x,i)
-            x = min(levs,key=levs.get) # 模糊比對
+            x = min(levs,key=levs.get)
             return map2代號(x)
     
     # 利用產品名去對應部門跟代號
     text_output['預測產品'] = text_output['預測產品'].apply(remove_subsets_lists)#對出來的產品名若為其他產品名的子集則剔除
+    
+    # 把list做一維展開
     def flatten(lst):
         return list(itertools.chain(*lst))
+    
     text_output['根據產品預測部門'] = [flatten([map2部門(i) for i in lst]) for lst in text_output['預測產品'].values]
     text_output['根據產品預測代號'] = [flatten([map2代號(i) for i in lst]) for lst in text_output['預測產品'].values]
     text_output = pd.concat([test_df,text_output.iloc[:,:]],axis=1)
@@ -436,7 +433,7 @@ if button:
             levens = {}
             for idx in 公司寶典.index:
                 levens[公司寶典.loc[idx,'代號']] = levenshtein(公司英文名稱,公司寶典.loc[idx,'公司英文名稱']) #公司的模糊比對
-            Threshold = 3*2 # 代表替換"n"次字元可以讓兩個字串一致
+            Threshold = 6 # 代表替換"n"次字元可以讓兩個字串一致
             if min(levens.values()) <= Threshold:
                 return min(levens,key=levens.get)
             else:
@@ -454,21 +451,21 @@ if button:
         DIVSION預測代號 = str(text_output.loc[idx,'DIVSION預測代號'])
         DIVSION = str(text_output.loc[idx,'DIVSION'])
         try:
-            if 公司預測代號.isalpha(): # 例如"RS" 直接continue
+            if 公司預測代號.isalpha(): # 例如"RS" 直接 assign 後continue
                 text_output.loc[idx,'集成預測代號'] = 公司預測代號
                 continue
 
-            if 公司預測代號 == 'not find': # 公司對不到所以直接取眾數continue
+            if 公司預測代號 == 'not find': # 公司對不到所以直接取眾數直接 assign 後continue
                 text_output.loc[idx,'集成預測代號'] = Counter(產品預測代號列表).most_common(1)[0][0] #從候選清單取眾數
                 continue
 
-            # 產品跟公司都有對到 判斷第一碼做初步篩選,再取眾數
+            # 產品跟公司都有對到 這時就先判斷第一碼做初步篩選,再取眾數
             for 產品預測代號 in 產品預測代號列表:
                 if str(產品預測代號)[0] != str(公司預測代號)[0]: # 看產品代號第一碼跟公司預測代號第一碼有沒有一致
                     產品預測代號列表 = list( set(產品預測代號列表) - set([產品預測代號])) # 不一致則去除
-            if len(產品預測代號列表) != 0: # 如果產品預測代號列表元素數量不等於0
+            if len(產品預測代號列表) != 0: # 如果篩選後產品預測代號列表還有元素
                 text_output.loc[idx,'集成預測代號'] = Counter(產品預測代號列表).most_common(1)[0][0] #從候選清單取眾數
-            else: # 否則用公司代號assign
+            else: # 否則用公司代號直接assign
                 text_output.loc[idx,'集成預測代號'] = 公司預測代號
         except Exception as e: #異常處理
             st.write(e)
