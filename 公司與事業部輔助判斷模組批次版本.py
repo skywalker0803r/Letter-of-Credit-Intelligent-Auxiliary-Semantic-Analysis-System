@@ -15,6 +15,8 @@ from transformers import pipeline
 import re
 from IPython.display import HTML
 import warnings;warnings.simplefilter('ignore')
+#0927到1119測試結果
+# 正確率:0.9182036888532478 錯誤筆數:102
 
 # set seed 
 def set_seed(seed = int):
