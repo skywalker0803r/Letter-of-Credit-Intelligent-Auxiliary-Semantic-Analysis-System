@@ -219,7 +219,7 @@ train_df_不加空白版本['Y_label'] = train_df_不加空白版本['Y_label'].
 # 讀取台塑網提供之寶典
 root = './data/寶典/寶典人工處理後/'
 # 官方寶典
-df5 = pd.read_excel(root+'寶典.v7.20211111.xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
+df5 = pd.read_excel(root+'寶典.v8.202111202.xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
 df5 = df5.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
 # ricky做的寶典
 df_by_ricky = pd.read_excel(root+'寶典_by_ricky.xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
@@ -227,7 +227,7 @@ df_by_ricky = df_by_ricky.rename(columns={'ITEMNM':'品名','DIVNM':'公司事�
 # 專員回饋
 feedback = pd.read_excel(root+'寶典_feedback.xlsx',engine='openpyxl')[['公司代號','公司事業部門','品名']]
 # 組合起來
-df = df5.append(feedback).append(df_by_ricky) # df5.append(feedback).append(df_by_ricky)
+df = df5.append(feedback).append(df_by_ricky)
 df_不加空白版本 = df.copy()
 #品名後處理
 df['品名'] = df['品名'].apply(lambda x:product_name_postprocess(x)) 
