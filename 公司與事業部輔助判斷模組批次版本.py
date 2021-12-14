@@ -221,6 +221,8 @@ root = './data/寶典/寶典人工處理後/'
 # 官方寶典
 df5 = pd.read_excel(root+'寶典.v8.202111202.xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
 df5 = df5.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
+CODIV表 = pd.read_excel(root+'寶典.v8.202111202.xlsx',engine='openpyxl')[['CODIV']].dropna().drop_duplicates()
+CODIV表['第一碼'] = CODIV表['CODIV'].apply(lambda x:str(x)[0])
 # ricky做的寶典
 df_by_ricky = pd.read_excel(root+'寶典_by_ricky.xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
 df_by_ricky = df_by_ricky.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
@@ -275,6 +277,7 @@ def find_department(品名):
 
 # 讀取銀行寶典
 銀行列表 = np.load('./data/寶典/銀行寶典.npy')
+銀行列表 = list(set(銀行列表))
 
 # 主UI設計
 st.title('公司與事業部輔助判斷模組')
@@ -466,7 +469,10 @@ if button:
             if len(產品預測代號列表) != 0: # 如果篩選後產品預測代號列表還有元素
                 text_output.loc[idx,'集成預測代號'] = Counter(產品預測代號列表).most_common(1)[0][0] #從候選清單取眾數
             else: # 否則用公司代號直接assign
-                text_output.loc[idx,'集成預測代號'] = 公司預測代號
+                try:
+                    text_output.loc[idx,'集成預測代號'] = np.random.choice(CODIV表.loc[CODIV表['第一碼']==str(公司預測代號)[0],'CODIV'].values)
+                except:
+                    text_output.loc[idx,'集成預測代號'] = 公司預測代號
         except Exception as e: #異常處理
             st.write(e)
             text_output.loc[idx,'集成預測代號'] = 公司預測代號
