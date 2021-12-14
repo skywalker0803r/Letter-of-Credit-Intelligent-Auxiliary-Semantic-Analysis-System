@@ -256,10 +256,14 @@ def 品名2部門函數(品名):
     answer = df.loc[df['品名']==品名,'公司事業部門'].unique().tolist()
     return [str(i) for i in answer] # 轉字串
 def 品名2代號函數(品名):
-    answer = df.loc[df['品名']==品名,'公司代號'].unique().tolist()
-    answer = [str(i) for i in answer] # 轉字串
-    answer = list(filter(lambda a: len(a) == 2, answer)) #保留兩碼的
-    return answer
+    if 品名 == 'PROPYLENE COPOLYMER':
+        return ['4A']
+    else:
+        answer = df.loc[df['品名']==品名,'公司代號'].unique().tolist()
+        answer = [str(i) for i in answer] # 轉字串
+        answer = list(filter(lambda a: len(a) == 2, answer)) #保留兩碼的
+        return answer
+        
 def 品名2代號訓練資料函數(品名):
     a = train_df.dropna(subset=['EXPNO'],axis=0)
     answer = a.loc[a['Y_label']==品名,'EXPNO'].unique().tolist()
