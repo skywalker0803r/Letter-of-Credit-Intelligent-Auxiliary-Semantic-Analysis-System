@@ -458,6 +458,38 @@ if button:
         DIVSION預測代號 = str(text_output.loc[idx,'DIVSION預測代號'])
         DIVSION = str(text_output.loc[idx,'DIVSION'])
         try:
+            if text_output.loc[idx,'預測產品(取長度最長)'] in ['TAISOX 7470M','TAISOX EVA','TAIWAN','EVA TAISOX 7350','EVA TAISOX']:
+                text_output.loc[idx,'集成預測代號'] = '18'
+                continue
+            
+            if text_output.loc[idx,'預測產品(取長度最長)'] in ['PP SYNTHETIC PAPER']:
+                text_output.loc[idx,'集成預測代號'] = '23'
+                continue
+            
+            if text_output.loc[idx,'預測產品(取長度最長)'] in ['EPOXIDIZED SOYBEAN OIL']:
+                text_output.loc[idx,'集成預測代號'] = '24'
+                continue
+            
+            if text_output.loc[idx,'預測產品(取長度最長)'] in ['GLASS FABRICS']:
+                text_output.loc[idx,'集成預測代號'] = '28'
+                continue
+
+            if text_output.loc[idx,'預測產品(取長度最長)'] in ['MONOETHYLENE GLYCOL']:
+                text_output.loc[idx,'集成預測代號'] = '2A'
+                continue
+
+            if text_output.loc[idx,'預測產品(取長度最長)'] in ['VISCOSE STAPLE FIBER']:
+                text_output.loc[idx,'集成預測代號'] = '41'
+                continue
+
+            if text_output.loc[idx,'預測產品(取長度最長)'] in ['PLASTIC RESIN']:
+                text_output.loc[idx,'集成預測代號'] = '11'
+                continue
+
+            if text_output.loc[idx,'預測產品(取長度最長)'] in ['TAIWAN']:
+                text_output.loc[idx,'集成預測代號'] = '60'
+                continue
+
             if 公司預測代號.isalpha(): # 例如"RS" 直接 assign 後continue
                 text_output.loc[idx,'集成預測代號'] = 公司預測代號
                 continue
