@@ -458,7 +458,12 @@ if button:
         DIVSION預測代號 = str(text_output.loc[idx,'DIVSION預測代號'])
         DIVSION = str(text_output.loc[idx,'DIVSION'])
         try:
-            if text_output.loc[idx,'預測產品(取長度最長)'] in ['TAISOX 7470M','TAISOX EVA','TAIWAN','EVA TAISOX 7350','EVA TAISOX']:
+
+            if 公司預測代號.isalpha(): # 例如"RS" 直接 assign 後continue
+                text_output.loc[idx,'集成預測代號'] = 公司預測代號
+                continue
+
+            if text_output.loc[idx,'預測產品(取長度最長)'] in ['TAISOX 7470M','TAISOX EVA','EVA TAISOX 7350','EVA TAISOX']:
                 text_output.loc[idx,'集成預測代號'] = '18'
                 continue
             
@@ -484,10 +489,6 @@ if button:
 
             if text_output.loc[idx,'預測產品(取長度最長)'] in ['TAIWAN']:
                 text_output.loc[idx,'集成預測代號'] = '60'
-                continue
-
-            if 公司預測代號.isalpha(): # 例如"RS" 直接 assign 後continue
-                text_output.loc[idx,'集成預測代號'] = 公司預測代號
                 continue
 
             if 公司預測代號 == 'not find': # 公司對不到所以直接取眾數直接 assign 後continue
