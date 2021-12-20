@@ -180,8 +180,8 @@ def load_nlp(path,model,tokenizer):
     model.eval()
     nlp = pipeline('question-answering', model=model.to('cpu'), tokenizer=tokenizer)
     return nlp
-tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
-model = DistilBertForQuestionAnswering.from_pretrained("distilbert-base-uncased")
+tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased',local_files_only=True)
+model = DistilBertForQuestionAnswering.from_pretrained("distilbert-base-uncased",local_files_only=True)
 nlp = load_nlp('./models/Product_Data_SQuAD_model_product.pt',model,tokenizer)
 nlp2 = load_nlp('./models/Product_Data_SQuAD_model_開狀人.pt',model,tokenizer)
 nlp3 = load_nlp('./models/Product_Data_SQuAD_model_公司.pt',model,tokenizer)
@@ -549,8 +549,10 @@ if button:
             df.loc[not_find_idx,'開狀銀行'] = bert_predict
         return df
 
-    st.write('正在預測銀行')    
-    text_output = predict_bank(df=text_output,x_col=銀行_col)
+    st.write('正在預測銀行')
+    text_output['銀行輸入'] = text_output[銀行_col[0]] + ' ' + text_output[銀行_col[1]] + ' ' + text_output[銀行_col[2]]
+    text_output['開狀銀行'] = text_output['LTADDRESS.1']
+    #text_output = predict_bank(df=text_output,x_col=銀行_col)
     #==================銀行預測部分==================================================================
     # 計算正確與否
     correct = [ i==j for i,j in zip(text_output['集成預測代號'].values.tolist(),text_output['推薦公司事業部'].values.tolist())]
@@ -576,6 +578,8 @@ if button:
                     get_jaccard_sim(str(開狀人),str(EXPNO對應表.loc[j,'開狀人']))+\
                         get_jaccard_sim(str(受益人),str(EXPNO對應表.loc[j,'受益人']))+\
                             get_jaccard_sim(str(開狀銀行),str(EXPNO對應表.loc[j,'開狀銀行']))
+                if jac[j] >= 0.8:
+                    break
             max_jac_idx = max(jac,key=jac.get)
             text_output.loc[i,'EXPNO'] = str(EXPNO對應表.loc[max_jac_idx,'EXPNO'])
     #==================================================================================================
@@ -692,6 +696,10 @@ if button:
             return result['correct'].value_counts()['yes']/len(result)
         except:
             return 0
+
+    text_output['與前案一致'] = text_output['EXPNO'].apply(lambda x:x[:2]) == text_output['集成預測代號']
+    與前案一致率 = text_output['與前案一致'].sum()/len(text_output)
+    st.write(f'與前案一致率:{與前案一致率}')
     
     st.write(f'正確率:{get_acc(text_output)}')
     錯誤筆數 = len(text_output.loc[text_output['正確與否']=='no',:])
