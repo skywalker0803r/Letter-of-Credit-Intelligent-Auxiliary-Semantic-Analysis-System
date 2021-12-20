@@ -438,7 +438,7 @@ if button:
             levens = {}
             for idx in 公司寶典.index:
                 levens[公司寶典.loc[idx,'代號']] = levenshtein(公司英文名稱,公司寶典.loc[idx,'公司英文名稱']) #公司的模糊比對
-            Threshold = 6 # 代表替換"n"次字元可以讓兩個字串一致
+            Threshold = 6*3 # 代表替換"n"次字元可以讓兩個字串一致
             if min(levens.values()) <= Threshold:
                 return min(levens,key=levens.get)
             else:
