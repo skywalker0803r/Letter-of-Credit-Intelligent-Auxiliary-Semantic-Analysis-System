@@ -482,10 +482,6 @@ if button:
                 text_output.loc[idx,'集成預測代號'] = '41'
                 continue
 
-            if text_output.loc[idx,'預測產品(取長度最長)'] in ['PLASTIC RESIN']:
-                text_output.loc[idx,'集成預測代號'] = '11'
-                continue
-
             if text_output.loc[idx,'預測產品(取長度最長)'] in ['TAIWAN']:
                 text_output.loc[idx,'集成預測代號'] = '60'
                 continue
