@@ -563,6 +563,7 @@ if button:
     #======================找對應的EXPNO==========================================================
     if debug_mode == False:
         text_output['EXPNO'] = 'not find'
+        text_output['EXPNO jac'] = 'not find'
         EXPNO對應表 = pd.read_csv('.\data\對應表\EXPNO對應表.csv')
         my_bar = st.progress(0)
         for percent_complete,i in enumerate(text_output.index):
@@ -578,8 +579,10 @@ if button:
                         get_jaccard_sim(str(受益人),str(EXPNO對應表.loc[j,'受益人']))+\
                             get_jaccard_sim(str(開狀銀行),str(EXPNO對應表.loc[j,'開狀銀行']))
                 if jac[j] >= 0.8:
+                    text_output['EXPNO jac'] = jac[j]
                     break
             max_jac_idx = max(jac,key=jac.get)
+            text_output['EXPNO jac'] = jac[max_jac_idx]
             text_output.loc[i,'EXPNO'] = str(EXPNO對應表.loc[max_jac_idx,'EXPNO'])
     #==================================================================================================
 
