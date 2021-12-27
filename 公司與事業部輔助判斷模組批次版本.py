@@ -579,10 +579,10 @@ if button:
                         get_jaccard_sim(str(受益人),str(EXPNO對應表.loc[j,'受益人']))+\
                             get_jaccard_sim(str(開狀銀行),str(EXPNO對應表.loc[j,'開狀銀行']))
                 if jac[j] >= 0.8:
-                    text_output['EXPNO jac'] = jac[j]
+                    text_output.loc[i,'EXPNO jac'] = jac[j]
                     break
             max_jac_idx = max(jac,key=jac.get)
-            text_output['EXPNO jac'] = jac[max_jac_idx]
+            text_output.loc[i,'EXPNO jac'] = jac[max_jac_idx]
             text_output.loc[i,'EXPNO'] = str(EXPNO對應表.loc[max_jac_idx,'EXPNO'])
     #==================================================================================================
 
