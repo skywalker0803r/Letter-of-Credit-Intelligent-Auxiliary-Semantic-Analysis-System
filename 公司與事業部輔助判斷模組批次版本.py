@@ -550,7 +550,7 @@ if button:
 
     st.write('正在預測銀行')
     text_output['銀行輸入'] = text_output[銀行_col[0]] + ' ' + text_output[銀行_col[1]] + ' ' + text_output[銀行_col[2]]
-    text_output['開狀銀行'] = text_output['LTADDRESS.1']
+    text_output['開狀銀行'] = text_output['LTADDRESS.1'].apply(lambda x:str(x)[:-3])#LTADDRESS的末三碼可以剃除
     #text_output = predict_bank(df=text_output,x_col=銀行_col)
     #==================銀行預測部分==================================================================
     # 計算正確與否
