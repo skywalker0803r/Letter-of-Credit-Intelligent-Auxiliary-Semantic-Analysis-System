@@ -584,6 +584,11 @@ if button:
             max_jac_idx = max(jac,key=jac.get)
             text_output.loc[i,'EXPNO jac'] = jac[max_jac_idx]
             text_output.loc[i,'EXPNO'] = str(EXPNO對應表.loc[max_jac_idx,'EXPNO'])
+            #
+            text_output.loc[i,'EXPNO 產品名分數'] = str(EXPNO對應表.loc[j,'產品名'])
+            text_output.loc[i,'EXPNO 開狀人分數'] = str(EXPNO對應表.loc[j,'開狀人'])
+            text_output.loc[i,'EXPNO 受益人分數'] = str(EXPNO對應表.loc[j,'受益人'])
+            text_output.loc[i,'EXPNO 開狀銀行分數'] = str(EXPNO對應表.loc[j,'開狀銀行'])
     #==================================================================================================
 
     # 展示結果
