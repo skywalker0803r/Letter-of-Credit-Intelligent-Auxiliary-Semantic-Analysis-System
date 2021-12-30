@@ -176,12 +176,12 @@ def product_name_postprocessV2(x):
 
 # 載入訓練好的模型
 def load_nlp(path,model,tokenizer):
-    model.load_state_dict(torch.load(path))
+    model.load_state_dict(torch.load(path,map_location=torch.device('cpu')))
     model.eval()
     nlp = pipeline('question-answering', model=model.to('cpu'), tokenizer=tokenizer)
     return nlp
-tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased',local_files_only=True)
-model = DistilBertForQuestionAnswering.from_pretrained("distilbert-base-uncased",local_files_only=True)
+tokenizer = DistilBertTokenizerFast.from_pretrained("distilbert-base-uncased")
+model = DistilBertForQuestionAnswering.from_pretrained("distilbert-base-uncased")
 nlp = load_nlp('./models/Product_Data_SQuAD_model_product.pt',model,tokenizer)
 nlp2 = load_nlp('./models/Product_Data_SQuAD_model_開狀人.pt',model,tokenizer)
 nlp3 = load_nlp('./models/Product_Data_SQuAD_model_公司.pt',model,tokenizer)
