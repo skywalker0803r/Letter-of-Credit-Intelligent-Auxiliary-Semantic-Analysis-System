@@ -565,14 +565,7 @@ if button:
         text_output['EXPNO'] = 'not find'
         text_output['EXPNO jac'] = 'not find'
         EXPNO對應表 = pd.read_csv('.\data\對應表\EXPNO對應表.csv')
-        # 去尾綴
-        def f(x):
-            for i in 公司寶典['尾綴'].values.tolist():
-                if i in x:
-                    return x.replace(i,'')
-                else:
-                    return x
-        EXPNO對應表['受益人'] = EXPNO對應表['受益人'].apply(lambda x:f(x))
+        EXPNO對應表['twocode'] = EXPNO對應表['EXPNO'].apply(lambda x:str(x)[:2])#前兩碼
         my_bar = st.progress(0)
         for percent_complete,i in enumerate(text_output.index):
             my_bar.progress(percent_complete/len(text_output))
@@ -581,12 +574,12 @@ if button:
             受益人 = text_output.loc[i,'受益人']
             開狀銀行 = text_output.loc[i,'開狀銀行']
             jac = {}
-            for j in EXPNO對應表.index:
+            for j in EXPNO對應表.loc[EXPNO對應表['twocode']==text_output.loc[i,'集成預測代號'],:].index:
                 jac[j] = get_jaccard_sim(str(產品),str(EXPNO對應表.loc[j,'產品名']))+\
                     get_jaccard_sim(str(開狀人),str(EXPNO對應表.loc[j,'開狀人']))+\
                         get_jaccard_sim(str(受益人),str(EXPNO對應表.loc[j,'受益人']))+\
                             get_jaccard_sim(str(開狀銀行),str(EXPNO對應表.loc[j,'開狀銀行']))
-                if jac[j] >= 3/4:
+                if jac[j] >= (3/4)*4:
                     text_output.loc[i,'EXPNO jac'] = jac[j]
                     break
             max_jac_idx = max(jac,key=jac.get)
