@@ -574,7 +574,12 @@ if button:
             受益人 = text_output.loc[i,'受益人']
             開狀銀行 = text_output.loc[i,'開狀銀行']
             jac = {}
-            for j in EXPNO對應表.loc[EXPNO對應表['twocode']==text_output.loc[i,'集成預測代號'],:].index:
+            select_idx = EXPNO對應表.loc[EXPNO對應表['twocode']==text_output.loc[i,'集成預測代號'],:].index
+            if len(select_idx)>0:
+                select_idx = select_idx
+            else:
+                select_idx = EXPNO對應表.index
+            for j in select_idx:
                 jac[j] = get_jaccard_sim(str(產品),str(EXPNO對應表.loc[j,'產品名']))+\
                     get_jaccard_sim(str(開狀人),str(EXPNO對應表.loc[j,'開狀人']))+\
                         get_jaccard_sim(str(受益人),str(EXPNO對應表.loc[j,'受益人']))+\
@@ -582,7 +587,10 @@ if button:
                 if jac[j] >= (3/4)*4:
                     text_output.loc[i,'EXPNO jac'] = jac[j]
                     break
-            max_jac_idx = max(jac,key=jac.get)
+            try:
+                max_jac_idx = max(jac,key=jac.get)
+            except:
+                max_jac_idx = np.random.choice(select_idx)
             text_output.loc[i,'EXPNO jac'] = jac[max_jac_idx]
             text_output.loc[i,'EXPNO'] = str(EXPNO對應表.loc[max_jac_idx,'EXPNO'])
             # 
