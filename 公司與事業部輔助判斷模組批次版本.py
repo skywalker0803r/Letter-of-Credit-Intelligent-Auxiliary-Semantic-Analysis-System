@@ -565,6 +565,14 @@ if button:
         text_output['EXPNO'] = 'not find'
         text_output['EXPNO jac'] = 'not find'
         EXPNO對應表 = pd.read_csv('.\data\對應表\EXPNO對應表.csv')
+        # 去尾綴
+        def f(x):
+            for i in 公司寶典['尾綴'].values.tolist():
+                if i in x:
+                    return x.replace(i,'')
+                else:
+                    return x
+        EXPNO對應表['受益人'] = EXPNO對應表['受益人'].apply(lambda x:f(x))
         my_bar = st.progress(0)
         for percent_complete,i in enumerate(text_output.index):
             my_bar.progress(percent_complete/len(text_output))
