@@ -47,3 +47,7 @@ streamlit run 公司與事業部輔助判斷模組.py
 AI自轉押文件模組.py
 :-------------------------:
 ![](https://github.com/skywalker0803r/Letter-of-Credit-Intelligent-Auxiliary-Semantic-Analysis-System/blob/main/gif/wcht2-yhmrz.gif)
+
+公司與事業部輔助判斷模組.py
+:-------------------------:
+![](https://github.com/skywalker0803r/Letter-of-Credit-Intelligent-Auxiliary-Semantic-Analysis-System/blob/main/gif/demo1.gif)
