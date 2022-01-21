@@ -109,6 +109,19 @@ def model_predict(nlp,df,question='What is the product name?',start_from0=False,
             predict = QA_input['context'][res['start']:res['end']]
         else:
             predict = QA_input['context'][0:res['end']]
+        
+        #可否像我說的預測到確切的國名的話就把他從Ｘ移除　再強迫ＢＥＲＴ再預測一次試試看
+        國名_list = ['TAIWAN','JAPAN','CHINA','AMERICA','INDIA']
+        國名_list = 國名_list + [ i.lower() for i in 國名_list]
+        if predict in 國名_list: #預測到確切的國名的話就把他從Ｘ移除
+            for 國名 in 國名_list: # for loop 跑完國名_list 把所有國名移除
+                QA_input['context'] = QA_input['context'].replace(國名,'') #移除國名
+            # 然後再強迫ＢＥＲＴ再預測一次試試看
+            if start_from0 == False:
+                predict = QA_input['context'][res['start']:res['end']]
+            else:
+                predict = QA_input['context'][0:res['end']]
+        # 最終預測結果製作成 dataframe的"row"
         row = pd.DataFrame({y_col:predict},index=[i])
         table = table.append(row)
     table[y_col] = table[y_col].apply(lambda x:[bert_postprocess(x)])
