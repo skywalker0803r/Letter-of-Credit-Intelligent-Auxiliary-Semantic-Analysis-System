@@ -500,9 +500,9 @@ if button:
                 text_output.loc[idx,'集成預測代號'] = '41'
                 continue
 
-            if text_output.loc[idx,'預測產品(取長度最長)'] in ['TAIWAN']:
-                text_output.loc[idx,'集成預測代號'] = '60'
-                continue
+            #if text_output.loc[idx,'預測產品(取長度最長)'] in ['TAIWAN']:
+            #    text_output.loc[idx,'集成預測代號'] = '60'
+            #    continue
 
             if 公司預測代號 == 'not find': # 公司對不到所以直接取眾數直接 assign 後continue
                 text_output.loc[idx,'集成預測代號'] = Counter(產品預測代號列表).most_common(1)[0][0] #從候選清單取眾數
