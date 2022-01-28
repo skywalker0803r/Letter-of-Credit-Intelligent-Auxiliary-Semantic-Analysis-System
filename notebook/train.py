@@ -9,10 +9,10 @@ url = 'https://gist.githubusercontent.com/skywalker0803r/14922b3cb7ca23e0de5eec5
 exec(requests.get(url).text)
 
 # 輸入欄位
-x_col = ['45A']#,'50','59','46A','47A','78']
+x_col = ['45A','50','59','46A','47A','78']
 
 # EXPNO對應表
-EXPNO對應表 = pd.read_csv('../data/對應表/EXPNO對應表.csv').head(50)
+EXPNO對應表 = pd.read_csv('../data/對應表/EXPNO對應表.csv')
 EXPNO對應表['X'] = EXPNO對應表[x_col].sum(axis=1) # 字串串起來
 
 # 訓練資料
@@ -23,11 +23,14 @@ model = coresystem()
 model.fit(train_data)
 
 # test
-test_data = train_data[:50]
+test_data = train_data
 最相近鄰居 = model.predict(test_data)
 for i,j in zip(test_data,最相近鄰居):
   assert i==j
+print('test ok')
 
-print('all ok')
-
+# save model
+save_path = '../models/model'
+joblib.dump(model,save_path)
+print(f'save done save model in {save_path}')
 
