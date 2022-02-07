@@ -581,7 +581,7 @@ if button:
     text_output['開狀銀行'] = text_output['LTADDRESS.1'].apply(lambda x:str(x)[:-3])#LTADDRESS的末三碼可以剃除
     
     # 預測bank_city 
-    test_df['bank_city'] = test_df['ltaddress的前八碼'].apply(mapping_swift_code2bank_city)
+    text_output['bank_city'] = test_df['ltaddress的前八碼'].apply(mapping_swift_code2bank_city)
     
     #==================銀行預測部分==================================================================
     # 計算正確與否
