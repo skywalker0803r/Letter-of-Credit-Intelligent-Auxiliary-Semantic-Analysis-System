@@ -268,7 +268,7 @@ df_不加空白版本['品名'] = df_不加空白版本['品名'].apply(lambda x
 品名2代號訓練資料 = dict(zip(train_df.dropna(subset=['EXPNO'],axis=0)['Y_label'],train_df.dropna(subset=['EXPNO'],axis=0)['EXPNO']))
 
 # Create swift_code_mapping
-swift_code_mapping = pd.read_csv('../data/寶典/SwiftCodes.csv')[['swift_code','bank_city']]
+swift_code_mapping = pd.read_csv('./data/寶典/SwiftCodes.csv')[['swift_code','bank_city']]
 swift_code_mapping = swift_code_mapping.dropna(axis=0)
 swift_code_mapping['swift_code'] = swift_code_mapping['swift_code'].apply(lambda x:str(x)[:8])
 swift_code_mapping = dict(zip(swift_code_mapping.swift_code,swift_code_mapping.bank_city))
