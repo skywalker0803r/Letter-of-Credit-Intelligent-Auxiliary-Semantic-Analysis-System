@@ -222,6 +222,9 @@ test_df['45A'] = test_df['45A'].apply(lambda x:preprocess_45(x))
 st.text('測試資料')
 st.write(test_df)
 
+# 撈取ltaddress的前八碼
+test_df['ltaddress的前八碼'] = test_df['LTADDRESS.1'].apply(lambda x:str(x)[:8])
+
 # 讀取訓練資料(SPEC)
 train_df = pd.read_csv('./data/preprocess_for_SQUAD_產品.csv')[['string_X_train','Y_label','EXPNO']]
 train_df_不加空白版本 = train_df.copy()
@@ -264,7 +267,19 @@ df_不加空白版本['品名'] = df_不加空白版本['品名'].apply(lambda x
 品名2代號寶典 = dict(zip(df['品名'],df['公司代號']))
 品名2代號訓練資料 = dict(zip(train_df.dropna(subset=['EXPNO'],axis=0)['Y_label'],train_df.dropna(subset=['EXPNO'],axis=0)['EXPNO']))
 
+# Create swift_code_mapping
+swift_code_mapping = pd.read_csv('../data/寶典/SwiftCodes.csv')[['swift_code','bank_city']]
+swift_code_mapping = swift_code_mapping.dropna(axis=0)
+swift_code_mapping['swift_code'] = swift_code_mapping['swift_code'].apply(lambda x:str(x)[:8])
+swift_code_mapping = dict(zip(swift_code_mapping.swift_code,swift_code_mapping.bank_city))
+
 # 製作映射函數
+def mapping_swift_code2bank_city(swift_code):
+    try:
+        return swift_code_mapping[swift_code]
+    except:
+        return None
+
 def 品名2部門函數(品名):
     answer = df.loc[df['品名']==品名,'公司事業部門'].unique().tolist()
     return [str(i) for i in answer] # 轉字串
@@ -564,7 +579,10 @@ if button:
     st.write('正在預測銀行')
     text_output['銀行輸入'] = text_output[銀行_col[0]] + ' ' + text_output[銀行_col[1]] + ' ' + text_output[銀行_col[2]]
     text_output['開狀銀行'] = text_output['LTADDRESS.1'].apply(lambda x:str(x)[:-3])#LTADDRESS的末三碼可以剃除
-    #text_output = predict_bank(df=text_output,x_col=銀行_col)
+    
+    # 預測bank_city 
+    test_df['bank_city'] = test_df['ltaddress的前八碼'].apply(mapping_swift_code2bank_city)
+    
     #==================銀行預測部分==================================================================
     # 計算正確與否
     correct = [ i==j for i,j in zip(text_output['集成預測代號'].values.tolist(),text_output['推薦公司事業部'].values.tolist())]
