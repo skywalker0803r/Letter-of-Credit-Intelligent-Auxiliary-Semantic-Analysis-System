@@ -7,6 +7,7 @@ from scipy import stats
 import joblib
 import torch
 import random
+import time
 from pytorch_lightning import seed_everything
 import os
 from transformers import DistilBertTokenizerFast
@@ -15,8 +16,6 @@ from transformers import pipeline
 import re
 from IPython.display import HTML
 import warnings;warnings.simplefilter('ignore')
-#0927到1119測試結果
-# 正確率:0.9182036888532478 錯誤筆數:102
 
 # set seed 
 def set_seed(seed = int):
@@ -318,6 +317,7 @@ button = st.button('predict')
 
 # 推論按鈕
 if button:
+    start_time = time.time()
     debug_mode = False
     
     # 先用規則
@@ -758,6 +758,8 @@ if button:
     st.write(f'錯誤筆數:{錯誤筆數}')
     ignore_error_text_output = text_output.loc[text_output['錯誤原因'] != '訓練使用的數據跟此份測試資料的代號不一致(可能還需釐清廠方提供數據是否有錯誤)']
     st.write(f'忽略訓練使用的數據跟此份測試資料的代號不一致的問題後正確率:{get_acc(ignore_error_text_output)}')
+    avg_predict_time = (time.time() - start_time)/len(text_output)
+    st.write(f'平均一個row預測時間(單位秒):{avg_predict_time}')
     
     # 保存結果到資料夾
     folder = './data/測試結果/'
