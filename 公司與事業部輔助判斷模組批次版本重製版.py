@@ -11,6 +11,15 @@ def matching(sentence,database):
       candidate_list.append(word)
   return candidate_list
 
+# rule對出來的產品名若為其他產品名的子集則剔除
+def substringSieve(string_list):
+    string_list.sort(key=lambda s: len(s), reverse=True)
+    out = []
+    for s in string_list:
+        if not any([s in o for o in out]):
+            out.append(s)
+    return out
+
 # 輸入sentence前處理
 def preprocess_raw_sentence(x):
     x = str(x).upper() # 轉大寫字串
@@ -42,7 +51,7 @@ def predict_keyword(title,test_df,Unrecognized,input_col,database,output_col):
             sentence = test_df.loc[i,input_col],
             database = set(database) - set(Unrecognized)
             )
-        output.loc[i,output_col] = candidate_list
+        output.loc[i,output_col] = substringSieve(candidate_list)
 
 # 讀取產品名資料庫
 品名寶典 = pd.read_excel('./data/寶典/寶典人工處理後/寶典.v8.202111202.xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
