@@ -107,14 +107,8 @@ if button:
     )
 
     # 2.預測開狀人
-    predict_keyword(
-        title = '正在預測開狀人',
-        test_df = test_df,
-        Unrecognized = ['',' '],
-        input_col = 開狀人輸入,
-        database = 開狀人寶典['開狀人'].values.tolist(),
-        output_col = '開狀人',
-    )
+    st.write('預測開狀人')
+    output['開狀人'] = test_df[開狀人輸入].apply(lambda x:str(x).split("_x000D")[0])
 
     # 3.預測公司
     predict_keyword(
