@@ -53,6 +53,10 @@ def predict_keyword(title,test_df,Unrecognized,input_col,database,output_col):
             )
         output.loc[i,output_col] = substringSieve(candidate_list)
 
+# 尋找最相似前案的EXPNO
+def find_most_similar_EXPNO(test_df,database):
+    
+
 # 讀取產品名資料庫
 品名寶典 = pd.read_excel('./data/寶典/寶典人工處理後/寶典.v8.202111202.xlsx',engine='openpyxl')[['CODIV','DIVNM','ITEMNM']]
 品名寶典 = 品名寶典.rename(columns={'ITEMNM':'品名','DIVNM':'公司事業部門','CODIV':'公司代號'})
@@ -101,6 +105,7 @@ output[受益人輸入] = test_df[受益人輸入]
 output['受益人'] = None
 output[開狀銀行輸入] = test_df[開狀銀行輸入]
 output['開狀銀行'] = None
+output['預測EXPNO'] = None
 
 if button:
     start_time = time.time()
@@ -116,8 +121,14 @@ if button:
     )
 
     # 2.預測開狀人
-    st.write('預測開狀人')
-    output['開狀人'] = test_df[開狀人輸入].apply(lambda x:str(x).split("_x000D")[0])
+    predict_keyword(
+        title = '正在預測開狀人',
+        test_df = test_df,
+        Unrecognized = ['',' '],
+        input_col = 開狀人輸入,
+        database = 開狀人寶典['開狀人'].values.tolist(),
+        output_col = '開狀人',
+    )
 
     # 3.預測公司
     predict_keyword(
@@ -132,6 +143,12 @@ if button:
     # 4.預測銀行
     st.write('正在預測開狀銀行')
     output['開狀銀行'] = output[開狀銀行輸入].apply(lambda x:str(x)[:8])
+
+    # 尋找最相近前案的EXPNO
+    output['預測EXPNO'] = find_most_similar_EXPNO(
+        test_df = test_df,
+        database = EXPNO對應表,
+        )
 
     # 計算消費時間
     cost_time = time.time() - start_time
