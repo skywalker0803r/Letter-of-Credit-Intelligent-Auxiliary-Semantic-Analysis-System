@@ -330,6 +330,8 @@ if button:
         text_output.loc[not_find_idx,text_output.columns] = Collection_method(test_df.loc[not_find_idx], 產品集合_不加空白版本 ,x_col)
     
     # 若還是無解則用bert
+    st.write('總資料筆數:',len(test_df))
+    st.write('產品名調用bert資料筆數:',len(not_find_idx))
     not_find_idx = text_output.loc[text_output['預測產品'] == 'not find',:].index
     if len(not_find_idx) > 0:
         bert_predict = model_predict(nlp,test_df.loc[not_find_idx])
