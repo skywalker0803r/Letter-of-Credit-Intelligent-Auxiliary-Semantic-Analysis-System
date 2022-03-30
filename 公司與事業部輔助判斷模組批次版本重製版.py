@@ -14,6 +14,15 @@ url = 'https://gist.githubusercontent.com/skywalker0803r/7c00d680d731b99ab549dd4
 exec(requests.get(url).text)
 
 #help function
+def 根據受益人限縮database(database,受益人,公司寶典):
+    公司英文名稱2代號 = dict(zip(公司寶典['公司英文名稱'],公司寶典['代號']))
+    代號 = str(公司英文名稱2代號[受益人])
+    expno第一碼 = 代號[:1]
+    cond1 = database['EXPNO'].apply(lambda x:str(x)[0]) == expno第一碼
+    cond2 = database['受益人'].apply(lambda x:x[0]) == 受益人
+    cond = cond1 & cond2
+    return database.loc[cond,:]
+ 
 # 保留英文字母
 def keep_alpha(str1): 
   char = "" 
@@ -168,23 +177,32 @@ def 推論函數(database_size,test_data):
   answer_list = []
   # 遍歷整個test_data
   for idx in tqdm(range(len(test_data))):
+    # 先根據受益人限縮database
+    try:
+      restricted_database = 根據受益人限縮database(database,test_data.loc[idx,'受益人'][0],公司寶典)
+    except:
+      restricted_database = database
     # 根據col和idx做推論
     o1 = 根據特定欄位和索引給出候選答案清單(
       col='產品名',idx=idx,k=3,
-      database_size=database_size,
-      database=database,test_data=test_data)
+      database_size = min(database_size,len(restricted_database)),
+      database = restricted_database,
+      est_data = test_data)
     o2 = 根據特定欄位和索引給出候選答案清單(
       col='開狀人',idx=idx,k=3,
-      database_size=database_size,
-      database=database,test_data=test_data)
+      database_size = min(database_size,len(restricted_database)),
+      database = restricted_database,
+      test_data = test_data)
     o3 = 根據特定欄位和索引給出候選答案清單(
       col='受益人',idx=idx,k=3,
-      database_size=database_size,
-      database=database,test_data=test_data)
+      database_size = min(database_size,len(restricted_database)),
+      database = restricted_database,
+      test_data = test_data)
     o4 = 根據特定欄位和索引給出候選答案清單(
       col='開狀銀行',idx=idx,k=3,
-      database_size=database_size,
-      database=database,test_data=test_data)
+      database_size = min(database_size,len(restricted_database)),
+      database = restricted_database,
+      test_data = test_data)
     # 集成投票
     o = o1#+o2+o3+o4
     try:
